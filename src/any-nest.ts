@@ -58,10 +58,7 @@ export default class AnyNest {
     for (var i = 0; i < shape.points.length; i++) {
       points.push(new FloatPoint(shape.points[i][0], shape.points[i][1]));
     }
-    // TODO: this is sketchy as hell. Why doesn't our only polygon implementation implement
-    // our only polygon interface?
-    //@ts-ignore
-    return new FloatPolygon(points, shape.id) as ArrayPolygon;
+    return FloatPolygon.fromPoints(points, shape.id);
   }
 
   /**

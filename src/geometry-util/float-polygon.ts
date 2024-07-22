@@ -12,25 +12,34 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
   private _source: number;
   private _rotation: number;
 
-  constructor(points: Array<Point> = [], source?: number) {
-    // TODO: seems like there should be a better way?
+  constructor() {
     super();
-    points.map((p) => this.push(FloatPoint.from(p)));
+  }
 
-    this._isValid = this.length >= 3;
-    this._children = [];
+  public static fromPoints(points: Array<Point> = [], source?: number): FloatPolygon {
+    var result: FloatPolygon = new FloatPolygon();
+    
+
+  
+
+ // constructor(points: Array<Point> = [], source?: number) {
+    // TODO: seems like there should be a better way to initialize our array of points?
+    points.map((p) => result.push(FloatPoint.from(p)));
+
+    result._isValid = this.length >= 3;
+    result._children = [];
 
     if (typeof source !== 'undefined') {
-      this._source = source;
+      result._source = source;
     }
 
-    if (!this._isValid) {
+    if (!result._isValid) {
       return;
     }
 
-    this._bounds = this._getBounds();
-    this._area = this._getArea();
-    this._offset = new FloatPoint();
+    result._bounds = result._computeBounds();
+    result._area = result._getArea();
+    result._offset = new FloatPoint();
   }
 
   public at(index: number): FloatPoint | null {
@@ -47,7 +56,7 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
       points.push(this[i].clone().rotate(radianAngle));
     }
 
-    const result = new FloatPolygon(points);
+    const result = FloatPolygon.fromPoints(points);
 
     if (this.hasChildren) {
       const childCount: number = this.childCount;
@@ -110,7 +119,7 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
     }
   }
 
-  private _getBounds(): FloatRect | null {
+  private _computeBounds(): FloatRect | null {
     if (!this._isValid) {
       return null;
     }
