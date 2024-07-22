@@ -14,7 +14,7 @@ export default class BinPolygon extends SharedPolygon {
     super(configuration);
 
     this._polygons = polygons;
-    this._isValid = this._polygons && this._polygons.points.length >= 3;
+    this._isValid = this._polygons && this._polygons.length >= 3;
 
     if (!this._isValid) {
       return;
@@ -42,7 +42,7 @@ export default class BinPolygon extends SharedPolygon {
     let min = FloatPoint.from(point);
 
     let i = 0;
-    const binSize = this._polygons.points.length;
+    const binSize = this._polygons.length;
 
     for (i = 1; i < binSize; ++i) {
       point = this._polygons[i];
@@ -56,14 +56,14 @@ export default class BinPolygon extends SharedPolygon {
       point.y -= min.y;
     }
 
-    this._polygons.boundRect.width = max.x - min.x;
-    this._polygons.boundRect.height = max.y - min.y;
+    this._polygons.bounds.width = max.x - min.x;
+    this._polygons.bounds.height = max.y - min.y;
 
     this._area = polygonArea(this._polygons);
 
     // all paths need to have the same winding direction
     if (this._area > 0) {
-      this._polygons.points.reverse();
+      this._polygons.reverse();
       this._area = polygonArea(this._polygons);
     }
   }

@@ -26,13 +26,13 @@ export interface BoundRect {
  * Represents an arbitrary 2D polygon shape. ArrayPolygons don't have any particular unit
  * associated with their points.
  */
-export interface ArrayPolygon {
+export interface ArrayPolygon extends Array<Point> {
   // Unique identifier for this ArrayPolygon. Name collisions will cause unspecified behavior.
   id: number;
 
-  boundRect: BoundRect;
+  bounds: BoundRect;
 
-  points: Array<Point>;
+  //points: Array<Point>;
   // Back-reference to the parent shape if this is a child.
   parent?: ArrayPolygon;
   // If this ArrayPolygon is representing a shape then it's children represent holes in the parent.

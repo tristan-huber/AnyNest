@@ -1,20 +1,23 @@
 import FloatPoint from "./float-point";
 import FloatRect from "./float-rect";
-import { Point } from "../interfaces";
+import { Point,ArrayPolygon,BoundRect } from "../interfaces";
 
-export default class FloatPolygon {
+export default class FloatPolygon extends Array<FloatPoint> implements ArrayPolygon, BoundRect {
   private _id: number = -1;
-  private _points: Array<FloatPoint>;
   private _bounds: FloatRect | null;
   private _area: number = 0;
   private _isValid: boolean;
   private _offset: FloatPoint;
   private _children: FloatPolygon[];
   private _source: number;
+  private _rotation: number;
 
   constructor(points: Array<Point> = [], source?: number) {
-    this._points = points.map((point) => FloatPoint.from(point));
-    this._isValid = this._points.length >= 3;
+    // TODO: seems like there should be a better way?
+    super();
+    points.map((p) => this.push(FloatPoint.from(p)));
+
+    this._isValid = this.length >= 3;
     this._children = [];
 
     if (typeof source !== 'undefined') {
@@ -31,7 +34,7 @@ export default class FloatPolygon {
   }
 
   public at(index: number): FloatPoint | null {
-    return this._points[index] || null;
+    return this[index] || null;
   }
 
   public rotate(angle: number): FloatPolygon {
@@ -41,7 +44,7 @@ export default class FloatPolygon {
     let i: number = 0;
 
     for (i = 0; i < pointCount; ++i) {
-      points.push(this._points[i].clone().rotate(radianAngle));
+      points.push(this[i].clone().rotate(radianAngle));
     }
 
     const result = new FloatPolygon(points);
@@ -64,16 +67,16 @@ export default class FloatPolygon {
     }
 
     const innerPoint: FloatPoint = FloatPoint.from(point);
-    const pointCount = this._points.length;
+    const pointCount = this.length;
     let result: boolean = false;
     const currentPoint: FloatPoint = new FloatPoint();
     const prevPoint: FloatPoint = new FloatPoint();
     let i: number = 0;
 
     for (i = 0; i < pointCount; ++i) {
-      currentPoint.set(this._points[i]).add(this._offset);
+      currentPoint.set(this[i]).add(this._offset);
       prevPoint
-        .set(this._points[(i - 1 + pointCount) % pointCount])
+        .set(this[(i - 1 + pointCount) % pointCount])
         .add(this._offset);
 
       if (
@@ -102,8 +105,8 @@ export default class FloatPolygon {
   }
 
   public close(): void {
-    if (this._points[0] != this._points[this._points.length - 1]) {
-      this._points.push(this._points[0]);
+    if (this[0] != this[this.length - 1]) {
+      this.push(this[0]);
     }
   }
 
@@ -112,14 +115,14 @@ export default class FloatPolygon {
       return null;
     }
 
-    let point: FloatPoint = this._points[0];
-    const pointCount: number = this._points.length;
+    let point: FloatPoint = this[0];
+    const pointCount: number = this.length;
     const min: FloatPoint = FloatPoint.from(point);
     const max: FloatPoint = FloatPoint.from(point);
     let i: number = 0;
 
     for (i = 1; i < pointCount; ++i) {
-      point = this._points[i];
+      point = this[i];
       max.max(point);
       min.min(point);
     }
@@ -128,15 +131,15 @@ export default class FloatPolygon {
   }
 
   private _getArea(): number {
-    const pointCount: number = this._points.length;
+    const pointCount: number = this.length;
     let result: number = 0;
     let i: number = 0;
     let currentPoint: Point;
     let prevPoint: Point;
 
     for (i = 0; i < pointCount; ++i) {
-      prevPoint = this._points[(i - 1 + pointCount) % pointCount];
-      currentPoint = this._points[i];
+      prevPoint = this[(i - 1 + pointCount) % pointCount];
+      currentPoint = this[i];
       result += (prevPoint.x + currentPoint.x) * (prevPoint.y - currentPoint.y);
     }
 
@@ -148,7 +151,7 @@ export default class FloatPolygon {
   }
 
   public get length(): number {
-    return this._points.length;
+    return this.length;
   }
 
   public get bound(): FloatRect | null {
@@ -160,7 +163,7 @@ export default class FloatPolygon {
   }
 
   public get firstPoint(): FloatPoint | null {
-    return this._points[0] || null;
+    return this[0] || null;
   }
 
   public get x(): number {
@@ -196,24 +199,24 @@ export default class FloatPolygon {
   }
 
   public get min(): FloatPoint {
-    const result = FloatPoint.from(this._points[0]);
+    const result = FloatPoint.from(this[0]);
     let i: number = 0;
-    const pointCount = this._points.length;
+    const pointCount = this.length;
 
     for (i = 1; i < pointCount; ++i) {
-      result.min(this._points[i]);
+      result.min(this[i]);
     }
 
     return result;
   }
 
   public get max(): FloatPoint {
-    const result = FloatPoint.from(this._points[0]);
+    const result = FloatPoint.from(this[0]);
     let i: number = 0;
-    const pointCount = this._points.length;
+    const pointCount = this.length;
 
     for (i = 1; i < pointCount; ++i) {
-      result.max(this._points[i]);
+      result.max(this[i]);
     }
 
     return result;
@@ -229,5 +232,17 @@ export default class FloatPolygon {
 
   public get childCount(): number {
     return this._children.length;
+  }
+
+  public get source(): number {
+    return this._source;
+  }
+
+  public get rotation(): number {
+    return this._rotation;
+  }
+
+  public get bounds(): BoundRect {
+    return this._bounds;
   }
 }

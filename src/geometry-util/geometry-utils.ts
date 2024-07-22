@@ -72,10 +72,7 @@ export function rotatePolygon(
 
   // reset bounding box
   const bounds = getPolygonBounds(result);
-  result.x = bounds.x;
-  result.y = bounds.y;
-  result.width = bounds.width;
-  result.height = bounds.height;
+  result.bounds = bounds;
 
   return result;
 }

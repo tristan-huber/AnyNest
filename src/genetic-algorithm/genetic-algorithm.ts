@@ -101,7 +101,7 @@ export default class GeneticAlgorithm {
     angleList = GeneticAlgorithm.shuffle(angleList);
 
     for (i = 0; i < angleCount; ++i) {
-      rotatedPart = rotatePolygon(part, angleList[i]) as ArrayPolygon;
+      rotatedPart = rotatePolygon(part, angleList[i]).bounds;
 
       // don't use obviously bad angles where the part doesn't fit in the bin
       if (
