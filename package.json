@@ -1,0 +1,24 @@
+{
+  "name": "any-nest",
+  "version": "1.0.0",
+  "description": "Polygon nesting library. Adapted from SVGNest",
+  "main": "dist/any-nest.js",
+  "module": "dist/any-nest.js",
+  "types": "dist/any-nest.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "author": "tristan-huber",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  },
+  "dependencies": {
+    "comlink": "^4.4.1"
+  }
+}
