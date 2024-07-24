@@ -5,7 +5,7 @@
 
 import { GeneticAlgorithm } from "./genetic-algorithm";
 import { polygonArea } from "./geometry-util";
-import { TreePolygon, BinPolygon } from "./polygon";
+import { TreePolygon } from "./polygon";
 import { generateNFPCacheKey } from "./util";
 import {
   ArrayPolygon,
@@ -21,21 +21,24 @@ import placePaths from "./parallel/shared-worker/place-path-flow";
 import FloatPoint from "./geometry-util/float-point";
 import FloatPolygon from "./geometry-util/float-polygon";
 
-interface Shape {
+/**
+ * 
+ */
+export interface Shape {
   id: number;
-  points: number[];
+  points: Point[];
 }
 
-export default class AnyNest {
+export class AnyNest {
   private _best: PlaceDataResult = null;
   private _isWorking: boolean = false;
   private _genethicAlgorithm: GeneticAlgorithm;
   private _progress: number = 0;
   private _configuration: SvgNestConfiguration;
   private _tree: TreePolygon = null;
-  private _binPolygon: BinPolygon = null;
+  private _binPolygon: FloatPolygon = null;
   private _nfpCache: Map<number, ArrayPolygon[]>;
-  private _workerTimer: number = null;
+  private _workerTimer: NodeJS.Timeout = null;
 
   constructor() {
     // keep a reference to any style nodes, to maintain color/fill info
@@ -56,7 +59,7 @@ export default class AnyNest {
   private _shapeToPolygon(shape: Shape): FloatPolygon {
     const points: FloatPoint[] = [];
     for (var i = 0; i < shape.points.length; i += 3) {
-      points.push(new FloatPoint(shape.points[i], shape.points[i + 1]));
+      points.push(new FloatPoint(shape.points[i][0], shape.points[i][1]));
     }
     return FloatPolygon.fromPoints(points, shape.id);
   }
@@ -67,10 +70,11 @@ export default class AnyNest {
    * The bin can be an arbitrary shape. All ArrayPolygons use unspecified units.
    */
   public setBin(bin: Shape): void {
-    this._binPolygon = new BinPolygon(
-      this._shapeToPolygon(bin),
-      this._configuration
-    );
+    this._binPolygon = this._shapeToPolygon(bin);
+    // move to align with origin
+    this._binPolygon.translate(this._binPolygon.min.scale(-1));
+    // offset
+    this._binPolygon.polygonOffset(-0.5 * this._configuration.spacing, this._configuration.clipperScale, this._configuration.curveTolerance);
   }
 
   /**
@@ -150,6 +154,10 @@ export default class AnyNest {
     return this._configuration;
   }
 
+  public getConfig(): SvgNestConfiguration {
+    return this._configuration;
+  }
+
 
   /**
    * Start the nesting algorithm. A genetic algorithm which produces generations of
@@ -168,7 +176,7 @@ export default class AnyNest {
    *        numParts - Total parts which were attempted to be placed (TODO: why do we have this? the caller should already know..)
    * @returns false if this algorithm failed to start (eg: setBin or setParts have not been called)
    */
-  start(generations: number, progressCallback: Function, displayCallback: Function): boolean {
+  start(progressCallback: Function, displayCallback: Function, generations?: number,): boolean {
     console.log("start called on anynest");
     if (!this._binPolygon || !this._tree) {
       console.log("bin: " + this._binPolygon + " tree: " + this._tree);
@@ -186,7 +194,7 @@ export default class AnyNest {
     this._workerTimer = setInterval(() => {
       if (!this._isWorking) {
         try {
-          this._launchWorkers(displayCallback);
+          this._launchWorkers(generations, displayCallback);
           this._isWorking = true;
         } catch(err) {
           // TODO: should we throw this up to caller? probs.
@@ -224,7 +232,7 @@ export default class AnyNest {
       results.push(pairData(
         nfpPairs[0], {
               rotations: this._configuration.rotations,
-              binPolygon: this._binPolygon.polygons,
+              binPolygon: this._binPolygon, // TODO: this is unused.
               searchEdges: this._configuration.exploreConcave,
               useHoles: this._configuration.useHoles
             }
@@ -236,7 +244,7 @@ export default class AnyNest {
     return results;
   }
 
-  private _launchWorkers(displayCallback: Function): void {
+  private _launchWorkers(generations: number, displayCallback: Function): void {
     console.log("_launchWorkers called");
     let i: number = 0;
     let j: number = 0;
@@ -296,7 +304,7 @@ export default class AnyNest {
       ids.push(part.id);
       part.rotation = rotations[i];
 
-      updateCache(this._binPolygon.polygons, part, 0, rotations[i], true);
+      updateCache(this._binPolygon, part, 0, rotations[i], true);
 
       for (j = 0; j < i; ++j) {
         updateCache(placeList[j], part, rotations[j], rotations[i], false);
@@ -307,7 +315,7 @@ export default class AnyNest {
     this._nfpCache = newCache;
 
     const placementWorkerData = {
-      binPolygon: this._binPolygon.polygons,
+      binPolygon: this._binPolygon,
       paths: placeList.slice(),
       ids,
       rotations,

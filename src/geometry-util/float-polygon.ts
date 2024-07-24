@@ -1,7 +1,19 @@
+import ClipperLib from "js-clipper";
 import FloatPoint from "./float-point";
 import FloatRect from "./float-rect";
-import { Point,ArrayPolygon,BoundRect } from "../interfaces";
+import { Point, ArrayPolygon, BoundRect, ClipperPoint } from "../interfaces";
+import { almostEqual } from "../util";
+import { toNestCoordinates, toClipperCoordinates } from "./geometry-utils";
 
+/**
+ * Represents a mutable polygon in 2D space.
+ * 
+ * Provides some core polygon behavior natively like: bounds, translate, rotate.
+ * 
+ * Note that some more advanced operations (eg: offset) are provided through Clipper.js. Clipper.js
+ * performs all operations in integer coordinate space, therefore these advanced operations require
+ * additional parameters which define the accuracy to execute the operation.
+ */
 export default class FloatPolygon extends Array<FloatPoint> implements ArrayPolygon, BoundRect {
   private _id: number = -1;
   private _bounds: FloatRect | null;
@@ -12,35 +24,41 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
   private _source: number;
   private _rotation: number;
 
-  constructor() {
+  private constructor() {
     super();
   }
 
+  /**
+   * Get a new FloatPolygon using the given set of points.
+   *
+   * @param points 
+   * @param source 
+   * @returns 
+   */
   public static fromPoints(points: Array<Point> = [], source?: number): FloatPolygon {
     var result: FloatPolygon = new FloatPolygon();
 
- // constructor(points: Array<Point> = [], source?: number) {
-    // TODO: seems like there should be a better way to initialize our array of points?
-    points.map((p) => result.push(FloatPoint.from(p)));
-
-    result._isValid = this.length >= 3;
+    result.updatePoints(points);
     result._children = [];
 
     if (typeof source !== 'undefined') {
       result._source = source;
     }
 
-    if (!result._isValid) {
-      return;
-    }
-
-    result._bounds = result._computeBounds();
-    result._area = result._getArea();
     result._offset = new FloatPoint();
+
+    return result;
   }
 
-  // Update the points in this polygon
+  /**
+   * Update the points in this polygon. Note that the resulting polygon may
+   * store slightly different points at the end of this operation because 1) we enforce a
+   * uniform winding direction on all polygons and 2) shared start/end points are deduplicated.
+   */
   public updatePoints(points: Array<Point>) {
+    while (this.length > 0) {
+      this.pop();
+    }
     points.map((p) => this.push(FloatPoint.from(p)));
 
     this._isValid = this.length >= 3;
@@ -50,13 +68,20 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
     }
 
     this._bounds = this._computeBounds();
-    this._area = this._getArea();    
+    this._area = this._getArea();
+    // Ensure a uniform winding direction for all Polygons.
+    if (this._area > 0) {
+      this.reverse();
+      this._area = this._getArea();
+    }
+
+    // Don't allow shared start/end points. All polygons are implicitly loops already.
+    if (this[0] === this.at(-1) || FloatPoint.almostEqual(this[0], this.at(-1))) {
+      this.pop();
+    }
   }
 
-  public at(index: number): FloatPoint | null {
-    return this[index] || null;
-  }
-
+  // TODO: this doesn't operate as a mutation method, probably should be updated.
   public rotate(angle: number): FloatPolygon {
     const points: Array<Point> = new Array<Point>();
     const pointCount: number = this.length;
@@ -78,6 +103,16 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
     }
 
     return result;
+  }
+
+  /**
+   * Moves this polygon by the specified vector. Positive x value moves "right",
+   * positive y value moves "up".
+   */
+  public translate(vector: FloatPoint) {
+    this.map((point: FloatPoint) => {
+      point.add(vector);
+    });
   }
 
   // return true if point is in the polygon, false if outside, and null if exactly on a point or edge
@@ -114,8 +149,8 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
       if (
         currentPoint.y - point.y > 0 !== prevPoint.y - point.y > 0 &&
         point.x - currentPoint.x <
-          ((prevPoint.x - currentPoint.x) * (point.y - currentPoint.y)) /
-            (prevPoint.y - currentPoint.y)
+        ((prevPoint.x - currentPoint.x) * (point.y - currentPoint.y)) /
+        (prevPoint.y - currentPoint.y)
       ) {
         result = !result;
       }
@@ -124,10 +159,33 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
     return result;
   }
 
-  public close(): void {
-    if (this[0] != this[this.length - 1]) {
-      this.push(this[0]);
+  // Note: for some polygons a negative offset will result in multiple polygons.
+  // This case is not currently supported.
+  public polygonOffset(offset: number, clipperScale: number, curveTolerance: number) {
+    if (almostEqual(offset, 0)) {
+      return;
     }
+
+    const p: ClipperPoint[] = toClipperCoordinates(this, clipperScale);
+    const miterLimit: number = 2;
+    const co = new ClipperLib.ClipperOffset(
+      miterLimit,
+      curveTolerance * clipperScale
+    );
+    co.AddPath(
+      p,
+      ClipperLib.JoinType.jtRound,
+      ClipperLib.EndType.etClosedPolygon
+    );
+
+    const newPaths = new ClipperLib.Paths();
+    co.Execute(newPaths, offset * clipperScale);
+
+    if (newPaths.length > 1) {
+      throw new Error("Bin offset too large and generated multiple bin spaces. This is not currently supported");
+    }
+
+    this.updatePoints(toNestCoordinates(newPaths[0], clipperScale));
   }
 
   private _computeBounds(): FloatRect | null {
