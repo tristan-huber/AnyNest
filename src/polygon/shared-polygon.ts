@@ -1,4 +1,3 @@
-//@ts-ignore
 import ClipperLib from "js-clipper";
 
 import { almostEqual } from "../util";

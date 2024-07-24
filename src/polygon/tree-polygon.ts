@@ -1,13 +1,14 @@
 import { polygonArea } from "../geometry-util";
 import FloatPoint from "../geometry-util/float-point";
+import FloatPolygon from "../geometry-util/float-polygon";
 import SharedPolygon from "./shared-polygon";
 import { ArrayPolygon, Point, SvgNestConfiguration } from "../interfaces";
 
 export default class TreePolygon extends SharedPolygon {
-  private _polygons: ArrayPolygon[];
+  private _polygons: FloatPolygon[];
 
   constructor(
-    polygons: ArrayPolygon[],
+    polygons: FloatPolygon[],
     configuration: SvgNestConfiguration,
     isOffset: boolean
   ) {
@@ -23,7 +24,7 @@ export default class TreePolygon extends SharedPolygon {
   removeDuplicats(): void {
     let start: Point;
     let end: Point;
-    let node: ArrayPolygon;
+    let node: FloatPolygon;
     let i: number = 0;
 
     // remove duplicate endpoints, ensure counterclockwise winding direction
@@ -55,23 +56,34 @@ export default class TreePolygon extends SharedPolygon {
   }
 
   // offset tree recursively
-  _offsetTree(tree: ArrayPolygon[], offset: number) {
+  _offsetTree(tree: FloatPolygon[], offset: number) {
+    if (!tree || tree.length == 0) {
+      return;
+    }
     let i: number = 0;
-    let node: ArrayPolygon;
+    let node: FloatPolygon;
     let offsetPaths: ArrayPolygon[];
     const treeSize: number = tree.length;
 
     for (i = 0; i < treeSize; ++i) {
       node = tree[i];
+      if (!node) {
+        console.warn("empty node in tree, this is probably bad?");
+        continue;
+      }
       offsetPaths = this._polygonOffset(node, offset);
 
       if (offsetPaths.length == 1) {
+        //TODO: This is a problem since we need to recompute bounding box and area.
+        node.updatePoints(offsetPaths[0]);
+        //var newNode:FloatPolygon = FloatPolygon.clone(offsetPaths[0]);
+
         // replace array items in place
-        Array.prototype.splice.apply(
-          node,
-          //@ts-ignore
-          [0, node.length].concat(offsetPaths[0])
-        );
+
+//        Array.prototype.splice.apply(
+ //         node,
+  //        [0, node.length].concat(offsetPaths[0])
+    //    );
       }
 
       if (node.children && node.children.length > 0) {

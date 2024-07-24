@@ -23,7 +23,7 @@ import FloatPolygon from "./geometry-util/float-polygon";
 
 interface Shape {
   id: number;
-  points: number[][];
+  points: number[];
 }
 
 export default class AnyNest {
@@ -53,10 +53,10 @@ export default class AnyNest {
     this._genethicAlgorithm = new GeneticAlgorithm();
   }
 
-  private _shapeToPolygon(shape: Shape): ArrayPolygon {
+  private _shapeToPolygon(shape: Shape): FloatPolygon {
     const points: FloatPoint[] = [];
-    for (var i = 0; i < shape.points.length; i++) {
-      points.push(new FloatPoint(shape.points[i][0], shape.points[i][1]));
+    for (var i = 0; i < shape.points.length; i += 3) {
+      points.push(new FloatPoint(shape.points[i], shape.points[i + 1]));
     }
     return FloatPolygon.fromPoints(points, shape.id);
   }
@@ -83,7 +83,7 @@ export default class AnyNest {
    * The given parts list should not include the bin polygon.
    */
   public setParts(parts: Shape[]): void {
-    const polygons: ArrayPolygon[] = [];
+    const polygons: FloatPolygon[] = [];
     for (var i = 0; i < parts.length; i++) {
       polygons.push(this._shapeToPolygon(parts[i]));
     }
@@ -171,10 +171,12 @@ export default class AnyNest {
   start(generations: number, progressCallback: Function, displayCallback: Function): boolean {
     console.log("start called on anynest");
     if (!this._binPolygon || !this._tree) {
+      console.log("bin: " + this._binPolygon + " tree: " + this._tree);
       return false;
     }
 
     if (!this._binPolygon.isValid) {
+      console.log("bin polygon invalid");
       return false;
     }
 
@@ -187,6 +189,7 @@ export default class AnyNest {
           this._launchWorkers(displayCallback);
           this._isWorking = true;
         } catch(err) {
+          // TODO: should we throw this up to caller? probs.
           console.log(err);
         }
       }

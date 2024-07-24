@@ -19,6 +19,7 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
-    "comlink": "^4.4.1"
+    "comlink": "^4.4.1",
+    "js-clipper": "^1.0.1"
   }
 }

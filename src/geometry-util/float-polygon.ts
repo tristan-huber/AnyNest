@@ -18,9 +18,6 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
 
   public static fromPoints(points: Array<Point> = [], source?: number): FloatPolygon {
     var result: FloatPolygon = new FloatPolygon();
-    
-
-  
 
  // constructor(points: Array<Point> = [], source?: number) {
     // TODO: seems like there should be a better way to initialize our array of points?
@@ -40,6 +37,20 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
     result._bounds = result._computeBounds();
     result._area = result._getArea();
     result._offset = new FloatPoint();
+  }
+
+  // Update the points in this polygon
+  public updatePoints(points: Array<Point>) {
+    points.map((p) => this.push(FloatPoint.from(p)));
+
+    this._isValid = this.length >= 3;
+
+    if (!this._isValid) {
+      return;
+    }
+
+    this._bounds = this._computeBounds();
+    this._area = this._getArea();    
   }
 
   public at(index: number): FloatPoint | null {

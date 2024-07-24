@@ -1,4 +1,3 @@
-//@ts-ignore
 import ClipperLib from "js-clipper";
 
 // returns the area of the polygon, assuming no self-intersections
