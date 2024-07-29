@@ -14,7 +14,7 @@ import { toNestCoordinates, toClipperCoordinates } from "./geometry-utils";
  * performs all operations in integer coordinate space, therefore these advanced operations require
  * additional parameters which define the accuracy to execute the operation.
  */
-export default class FloatPolygon extends Array<FloatPoint> implements ArrayPolygon, BoundRect {
+export class FloatPolygon implements ArrayPolygon, BoundRect {
   private _id: number = -1;
   private _bounds: FloatRect | null;
   private _area: number = 0;
@@ -23,10 +23,9 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
   private _children: FloatPolygon[];
   private _source: number;
   private _rotation: number;
+  private _points: Array<FloatPoint>;
 
-  private constructor() {
-    super();
-  }
+  private constructor() {}
 
   /**
    * Get a new FloatPolygon using the given set of points.
@@ -56,12 +55,9 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
    * uniform winding direction on all polygons and 2) shared start/end points are deduplicated.
    */
   public updatePoints(points: Array<Point>) {
-    while (this.length > 0) {
-      this.pop();
-    }
-    points.map((p) => this.push(FloatPoint.from(p)));
+    this._points = points.map((p) => FloatPoint.from(p));
 
-    this._isValid = this.length >= 3;
+    this._isValid = this._points.length >= 3;
 
     if (!this._isValid) {
       return;
@@ -71,25 +67,25 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
     this._area = this._getArea();
     // Ensure a uniform winding direction for all Polygons.
     if (this._area > 0) {
-      this.reverse();
+      this._points.reverse();
       this._area = this._getArea();
     }
 
     // Don't allow shared start/end points. All polygons are implicitly loops already.
-    if (this[0] === this.at(-1) || FloatPoint.almostEqual(this[0], this.at(-1))) {
-      this.pop();
+    if (FloatPoint.almostEqual(this._points[0], this._points.at(-1))) {
+      this._points.pop();
     }
   }
 
   // TODO: this doesn't operate as a mutation method, probably should be updated.
   public rotate(angle: number): FloatPolygon {
     const points: Array<Point> = new Array<Point>();
-    const pointCount: number = this.length;
+    const pointCount: number = this._points.length;
     const radianAngle: number = (angle * Math.PI) / 180;
     let i: number = 0;
 
     for (i = 0; i < pointCount; ++i) {
-      points.push(this[i].clone().rotate(radianAngle));
+      points.push(this._points[i].clone().rotate(radianAngle));
     }
 
     const result = FloatPolygon.fromPoints(points);
@@ -110,7 +106,7 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
    * positive y value moves "up".
    */
   public translate(vector: FloatPoint) {
-    this.map((point: FloatPoint) => {
+    this._points.map((point: FloatPoint) => {
       point.add(vector);
     });
   }
@@ -122,16 +118,16 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
     }
 
     const innerPoint: FloatPoint = FloatPoint.from(point);
-    const pointCount = this.length;
+    const pointCount = this._points.length;
     let result: boolean = false;
     const currentPoint: FloatPoint = new FloatPoint();
     const prevPoint: FloatPoint = new FloatPoint();
     let i: number = 0;
 
     for (i = 0; i < pointCount; ++i) {
-      currentPoint.set(this[i]).add(this._offset);
+      currentPoint.set(this._points[i]).add(this._offset);
       prevPoint
-        .set(this[(i - 1 + pointCount) % pointCount])
+        .set(this._points[(i - 1 + pointCount) % pointCount])
         .add(this._offset);
 
       if (
@@ -166,7 +162,7 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
       return;
     }
 
-    const p: ClipperPoint[] = toClipperCoordinates(this, clipperScale);
+    const p: ClipperPoint[] = toClipperCoordinates(this.points, clipperScale);
     const miterLimit: number = 2;
     const co = new ClipperLib.ClipperOffset(
       miterLimit,
@@ -193,14 +189,14 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
       return null;
     }
 
-    let point: FloatPoint = this[0];
-    const pointCount: number = this.length;
+    let point: FloatPoint = this._points[0];
+    const pointCount: number = this._points.length;
     const min: FloatPoint = FloatPoint.from(point);
     const max: FloatPoint = FloatPoint.from(point);
     let i: number = 0;
 
     for (i = 1; i < pointCount; ++i) {
-      point = this[i];
+      point = this._points[i];
       max.max(point);
       min.min(point);
     }
@@ -209,27 +205,27 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
   }
 
   private _getArea(): number {
-    const pointCount: number = this.length;
+    const pointCount: number = this._points.length;
     let result: number = 0;
     let i: number = 0;
     let currentPoint: Point;
     let prevPoint: Point;
 
     for (i = 0; i < pointCount; ++i) {
-      prevPoint = this[(i - 1 + pointCount) % pointCount];
-      currentPoint = this[i];
+      prevPoint = this._points[(i - 1 + pointCount) % pointCount];
+      currentPoint = this._points[i];
       result += (prevPoint.x + currentPoint.x) * (prevPoint.y - currentPoint.y);
     }
 
     return 0.5 * result;
   }
 
-  public get isValid(): boolean {
-    return this._isValid;
+  public get points(): Array<Point> {
+    return this._points; // TODO: should slice to copy?
   }
 
-  public get length(): number {
-    return this.length;
+  public get isValid(): boolean {
+    return this._isValid;
   }
 
   public get bound(): FloatRect | null {
@@ -241,7 +237,7 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
   }
 
   public get firstPoint(): FloatPoint | null {
-    return this[0] || null;
+    return this._points[0] || null;
   }
 
   public get x(): number {
@@ -277,24 +273,24 @@ export default class FloatPolygon extends Array<FloatPoint> implements ArrayPoly
   }
 
   public get min(): FloatPoint {
-    const result = FloatPoint.from(this[0]);
+    const result = FloatPoint.from(this._points[0]);
     let i: number = 0;
-    const pointCount = this.length;
+    const pointCount = this._points.length;
 
     for (i = 1; i < pointCount; ++i) {
-      result.min(this[i]);
+      result.min(this._points[i]);
     }
 
     return result;
   }
 
   public get max(): FloatPoint {
-    const result = FloatPoint.from(this[0]);
+    const result = FloatPoint.from(this._points[0]);
     let i: number = 0;
-    const pointCount = this.length;
+    const pointCount = this._points.length;
 
     for (i = 1; i < pointCount; ++i) {
-      result.max(this[i]);
+      result.max(this._points[i]);
     }
 
     return result;

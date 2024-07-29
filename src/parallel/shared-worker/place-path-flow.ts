@@ -17,6 +17,7 @@ import {
   PlacePairConfiguration,
   Point
 } from "../../interfaces";
+import { FloatPolygon } from "../../geometry-util/float-polygon";
 
 export default function placePaths(
   inputPaths: Array<ArrayPolygon>,
@@ -29,7 +30,7 @@ export default function placePaths(
   // rotate paths by given rotation
   const paths = [];
   const allPlacements = [];
-  const binArea: number = Math.abs(polygonArea(env.binPolygon));
+  const binArea: number = Math.abs(env.binPolygon.area);
   let i: number = 0;
   let j: number = 0;
   let k: number = 0;
@@ -50,7 +51,7 @@ export default function placePaths(
   let combinedNfp;
   let finalNfp;
   let f;
-  let allPoints: ArrayPolygon;
+  let allPoints: Array<Point>;
   let index;
   let rectBounds;
   let minWidth: number | null = null;
@@ -117,11 +118,11 @@ export default function placePaths(
           for (k = 0; k < binNfp.at(j).length; ++k) {
             if (
               position === null ||
-              binNfp.at(j).at(k).x - path.at(0).x < position.x
+              binNfp.at(j).at(k).x - path.points.at(0).x < position.x
             ) {
               position = {
-                x: binNfp.at(j).at(k).x - path.at(0).x,
-                y: binNfp.at(j).at(k).y - path.at(0).y,
+                x: binNfp.at(j).at(k).x - path.points.at(0).x,
+                y: binNfp.at(j).at(k).y - path.points.at(0).y,
                 id: path.id,
                 rotation: path.rotation
               };
@@ -238,7 +239,7 @@ export default function placePaths(
         }
 
         for (k = 0; k < nf.length; ++k) {
-          allPoints = new Array<Point>() as ArrayPolygon;
+          allPoints = new Array<Point>();
 
           for (m = 0; m < placed.length; ++m) {
             for (n = 0; n < placed.at(m).length; ++n) {
@@ -249,18 +250,18 @@ export default function placePaths(
           }
 
           shiftVector = {
-            x: nf.at(k).x - path.at(0).x,
-            y: nf.at(k).y - path.at(0).y,
+            x: nf.at(k).x - path.points.at(0).x,
+            y: nf.at(k).y - path.points.at(0).y,
             id: path.id,
             rotation: path.rotation,
             nfp: combinedNfp
           };
 
-          for (m = 0; m < path.length; ++m) {
-            allPoints.push(FloatPoint.from(path.at(m)).add(shiftVector));
+          for (m = 0; m < path.points.length; ++m) {
+            allPoints.push(FloatPoint.from(path.points.at(m)).add(shiftVector));
           }
 
-          rectBounds = getPolygonBounds(allPoints);
+          rectBounds = getPolygonBounds(FloatPolygon.fromPoints(allPoints));
 
           // weigh width more, to help compress in direction of gravity
           area = rectBounds.width * 2 + rectBounds.height;

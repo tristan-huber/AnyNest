@@ -1,6 +1,6 @@
 import { polygonArea } from "../geometry-util";
 import FloatPoint from "../geometry-util/float-point";
-import FloatPolygon from "../geometry-util/float-polygon";
+import {FloatPolygon} from "../geometry-util/float-polygon";
 import SharedPolygon from "./shared-polygon";
 import { ArrayPolygon, Point, SvgNestConfiguration } from "../interfaces";
 
@@ -26,21 +26,6 @@ export default class TreePolygon extends SharedPolygon {
     let end: Point;
     let node: FloatPolygon;
     let i: number = 0;
-
-    // remove duplicate endpoints, ensure counterclockwise winding direction
-    for (i = 0; i < this._polygons.length; ++i) {
-      node = this._polygons[i];
-      start = node[0];
-      end = node[node.length - 1];
-
-      if (start === end || FloatPoint.almostEqual(start, end)) {
-        node.pop();
-      }
-
-      if (polygonArea(node) > 0) {
-        node.reverse();
-      }
-    }
   }
 
   at(index: number): ArrayPolygon {
@@ -75,7 +60,7 @@ export default class TreePolygon extends SharedPolygon {
 
       if (offsetPaths.length == 1) {
         //TODO: This is a problem since we need to recompute bounding box and area.
-        node.updatePoints(offsetPaths[0]);
+        node.updatePoints(offsetPaths[0].points);
         //var newNode:FloatPolygon = FloatPolygon.clone(offsetPaths[0]);
 
         // replace array items in place

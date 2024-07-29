@@ -7,6 +7,7 @@ import {
   SvgNestConfiguration
 } from "../interfaces";
 import { toNestCoordinates, toClipperCoordinates } from "../geometry-util";
+import { FloatPolygon } from "../geometry-util/float-polygon";
 
 export default class SharedPolygon {
   private _configuration: SvgNestConfiguration;
@@ -52,11 +53,11 @@ export default class SharedPolygon {
 
   // converts a polygon from normal float coordinates to integer coordinates used by clipper, as well as x/y -> X/Y
   protected svgToClipper(polygon: ArrayPolygon): ClipperPoint[] {
-    return toClipperCoordinates(polygon, this._configuration.clipperScale);
+    return toClipperCoordinates(polygon.points, this._configuration.clipperScale);
   }
 
   protected clipperToSvg(polygon: ClipperPoint[]): ArrayPolygon {
-    return toNestCoordinates(polygon, this._configuration.clipperScale);
+    return FloatPolygon.fromPoints(toNestCoordinates(polygon, this._configuration.clipperScale));
   }
 
   protected get curveTolerance(): number {

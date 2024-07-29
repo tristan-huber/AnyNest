@@ -5,13 +5,14 @@ import ClipperLib from "js-clipper";
 import FloatPoint from "./float-point";
 import FloatRect from "./float-rect";
 import { ArrayPolygon, ClipperPoint, Point } from "../interfaces";
+import { FloatPolygon } from "./float-polygon";
 
 //TODO: depreacete when polygone will be moved to class
 
 // private shared variables/methods
 
 // a negative area indicates counter-clockwise winding direction
-export function polygonArea(polygon: ArrayPolygon): number {
+export function polygonArea(polygon: Array<Point>): number {
   const pointCount: number = polygon.length;
   let result: number = 0;
   let i: number = 0;
@@ -29,18 +30,18 @@ export function polygonArea(polygon: ArrayPolygon): number {
 
 // returns the rectangular bounding box of the given polygon
 export function getPolygonBounds(polygon: ArrayPolygon): FloatRect | null {
-  if (polygon.length < 3) {
+  if (polygon.points.length < 3) {
     return null;
   }
 
-  const pointCount: number = polygon.length;
-  const min: FloatPoint = FloatPoint.from(polygon.at(0));
-  const max: FloatPoint = FloatPoint.from(polygon.at(0));
+  const pointCount: number = polygon.points.length;
+  const min: FloatPoint = FloatPoint.from(polygon.points.at(0));
+  const max: FloatPoint = FloatPoint.from(polygon.points.at(0));
   let i: number = 0;
 
   for (i = 1; i < pointCount; ++i) {
-    max.max(polygon.at(i));
-    min.min(polygon.at(i));
+    max.max(polygon.points.at(i));
+    min.min(polygon.points.at(i));
   }
 
   return FloatRect.fromPoints(min, max);
@@ -50,15 +51,16 @@ export function rotatePolygon(
   polygon: ArrayPolygon,
   angle: number
 ): ArrayPolygon {
-  const result: ArrayPolygon = new Array<Point>() as ArrayPolygon;
-  const pointCount: number = polygon.length;
+  const ext: Array<Point> = new Array<Point>;
+  const pointCount: number = polygon.points.length;
   const radianAngle: number = (angle * Math.PI) / 180;
   let i: number = 0;
 
   for (i = 0; i < pointCount; ++i) {
-    result.push(FloatPoint.from(polygon.at(i)).rotate(radianAngle));
+    ext.push(FloatPoint.from(polygon.points.at(i)).rotate(radianAngle));
   }
 
+  const result: ArrayPolygon = FloatPolygon.fromPoints(ext);
   if (polygon.children && polygon.children.length > 0) {
     const childCount = polygon.children.length;
 
@@ -69,21 +71,17 @@ export function rotatePolygon(
     }
   }
 
-  // reset bounding box
-  const bounds = getPolygonBounds(result);
-  result.bounds = bounds;
-
   return result;
 }
 
 // return true if point is in the polygon, false if outside, and null if exactly on a point or edge
 export function pointInPolygon(point: Point, polygon: ArrayPolygon): boolean {
-  if (polygon.length < 3) {
+  if (polygon.points.length < 3) {
     return false;
   }
 
   const innerPoint: FloatPoint = FloatPoint.from(point);
-  const pointCount = polygon.length;
+  const pointCount = polygon.points.length;
   let result: boolean = false;
   let offset: FloatPoint = new FloatPoint(
     polygon.offsetx || 0,
@@ -94,8 +92,8 @@ export function pointInPolygon(point: Point, polygon: ArrayPolygon): boolean {
   let i: number = 0;
 
   for (i = 0; i < pointCount; ++i) {
-    currentPoint.set(polygon.at(i)).add(offset);
-    prevPoint.set(polygon.at((i - 1 + pointCount) % pointCount)).add(offset);
+    currentPoint.set(polygon.points.at(i)).add(offset);
+    prevPoint.set(polygon.points.at((i - 1 + pointCount) % pointCount)).add(offset);
 
     if (
       innerPoint.almostEqual(currentPoint) ||
@@ -124,7 +122,7 @@ export function pointInPolygon(point: Point, polygon: ArrayPolygon): boolean {
 
 // jsClipper uses X/Y instead of x/y...
 export function toClipperCoordinates(
-  polygon: ArrayPolygon,
+  polygon: Array<Point>,
   scale: number = 1
 ): ClipperPoint[] {
   const size: number = polygon.length;
@@ -147,9 +145,9 @@ export function toClipperCoordinates(
 export function toNestCoordinates(
   polygon: ClipperPoint[],
   scale: number
-): ArrayPolygon {
+): Array<Point> {
   const size: number = polygon.length;
-  const result: ArrayPolygon = new Array<Point>() as ArrayPolygon;
+  const result: Array<Point> = new Array<Point>();
   let i: number = 0;
   let point: ClipperPoint;
 

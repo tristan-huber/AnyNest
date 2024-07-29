@@ -19,7 +19,7 @@ import Phenotype from "./genetic-algorithm/phenotype";
 import pairData from "./parallel/shared-worker/pair-data-flow";
 import placePaths from "./parallel/shared-worker/place-path-flow";
 import FloatPoint from "./geometry-util/float-point";
-import FloatPolygon from "./geometry-util/float-polygon";
+import {FloatPolygon} from "./geometry-util/float-polygon";
 
 /**
  * 
@@ -256,7 +256,7 @@ export class AnyNest {
       // seed with decreasing area
       adam.sort(
         (a: ArrayPolygon, b: ArrayPolygon): number =>
-          Math.abs(polygonArea(b)) - Math.abs(polygonArea(a))
+          Math.abs(polygonArea(b.points)) - Math.abs(polygonArea(a.points))
       );
 
       this._genethicAlgorithm.init(
@@ -388,7 +388,7 @@ export class AnyNest {
 
                 for (j = 0; j < bestPlacement.length; ++j) {
                   placedArea += Math.abs(
-                    polygonArea(this._tree.at(bestPlacement[j].id))
+                    polygonArea(this._tree.at(bestPlacement[j].id).points)
                   );
                 }
               }

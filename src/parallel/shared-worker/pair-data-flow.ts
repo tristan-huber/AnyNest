@@ -21,6 +21,7 @@ import {
 } from "../../interfaces";
 import { almostEqual } from "../../util";
 import { expose } from "comlink";
+import { FloatPolygon } from "../../geometry-util/float-polygon";
 
 /*!
  * General purpose geometry functions for polygon/Bezier calculations
@@ -38,7 +39,7 @@ function checkIntersection(a: number, b: number, c: number): boolean {
 }
 
 function isRectangle(polygon: ArrayPolygon): boolean {
-  const pointCount: number = polygon.length;
+  const pointCount: number = polygon.points.length;
   const boundRect: FloatRect = getPolygonBounds(polygon);
   const bottomLeft: FloatPoint = boundRect.bottomLeft;
   const topRight: FloatPoint = boundRect.topRight;
@@ -46,7 +47,7 @@ function isRectangle(polygon: ArrayPolygon): boolean {
   let point: Point;
 
   for (i = 0; i < pointCount; ++i) {
-    point = polygon.at(i);
+    point = polygon.points.at(i);
 
     if (
       (!almostEqual(point.x, bottomLeft.x) &&
@@ -106,17 +107,17 @@ function checkPolygon(
   indexOffset: number,
   pointOffset: Point
 ): boolean {
-  const size: number = polygon1.length;
+  const size: number = polygon1.points.length;
   let pointIndex: number = (index + indexOffset + size) % size;
 
   if (
     pointIndex === index ||
-    FloatPoint.almostEqual(polygon1.at(pointIndex), polygon1.at(index))
+    FloatPoint.almostEqual(polygon1.points.at(pointIndex), polygon1.points.at(index))
   ) {
     pointIndex = (pointIndex + indexOffset + size) % size;
   }
 
-  point1.set(polygon1.at(pointIndex)).add(pointOffset);
+  point1.set(polygon1.points.at(pointIndex)).add(pointOffset);
 
   return pointInPolygon(point1, polygon2) !== pointInPolygon(point2, polygon2);
 }
@@ -133,8 +134,8 @@ function intersect(polygonA: ArrayPolygon, polygonB: ArrayPolygon): boolean {
     polygonB.offsetx || 0,
     polygonB.offsety || 0
   );
-  const aSize: number = polygonA.length;
-  const bSize: number = polygonA.length;
+  const aSize: number = polygonA.points.length;
+  const bSize: number = polygonA.points.length; // Why is this size a?
   const a1: FloatPoint = new FloatPoint();
   const a2: FloatPoint = new FloatPoint();
   const b1: FloatPoint = new FloatPoint();
@@ -144,12 +145,12 @@ function intersect(polygonA: ArrayPolygon, polygonB: ArrayPolygon): boolean {
   let j: number = 0;
 
   for (i = 0; i < aSize - 1; ++i) {
-    a1.set(polygonA.at(i)).add(offsetA);
-    a2.set(polygonA.at(i + 1)).add(offsetA);
+    a1.set(polygonA.points.at(i)).add(offsetA);
+    a2.set(polygonA.points.at(i + 1)).add(offsetA);
 
     for (j = 0; j < bSize - 1; ++j) {
-      b1.set(polygonB.at(j)).add(offsetB);
-      b2.set(polygonB.at(j + 1)).add(offsetB);
+      b1.set(polygonB.points.at(j)).add(offsetB);
+      b2.set(polygonB.points.at(j + 1)).add(offsetB);
 
       if (b1.onSegment(a1, a2) || b1.almostEqual(a1)) {
         // if a point is on a segment, it could intersect or it could not. Check via the neighboring points
@@ -410,37 +411,37 @@ function polygonSlideDistance(
   const offsetA: FloatPoint = new FloatPoint(a.offsetx || 0, a.offsety || 0);
   const offsetB: FloatPoint = new FloatPoint(b.offsetx || 0, b.offsety || 0);
   const dir: FloatPoint = FloatPoint.normalizeVector(direction);
-  const edgeA: ArrayPolygon = a.slice(0) as ArrayPolygon;
-  const edgeB: ArrayPolygon = b.slice(0) as ArrayPolygon;
-  let sizeA: number = edgeA.length;
-  let sizeB: number = edgeB.length;
+  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(a.points); // TODO: this should be a full clone?
+  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(b.points);
+  let sizeA: number = edgeA.points.length;
+  let sizeB: number = edgeB.points.length;
   let result: number | null = null;
   let distance: number | null = null;
   let i: number = 0;
   let j: number = 0;
 
   // close the loop for polygons
-  if (edgeA.at(0) != edgeA.at(sizeA - 1)) {
+  if (edgeA.points.at(0) != edgeA.points.at(sizeA - 1)) {
     ++sizeA;
-    edgeA.push(edgeA.at(0));
+    edgeA.points.push(edgeA.points.at(0));
   }
 
-  if (edgeB.at(0) != edgeB.at(sizeB - 1)) {
+  if (edgeB.points.at(0) != edgeB.points.at(sizeB - 1)) {
     ++sizeB;
-    edgeB.push(edgeB.at(0));
+    edgeB.points.push(edgeB.points.at(0));
   }
 
   for (i = 0; i < sizeB - 1; ++i) {
-    b1.set(edgeB.at(i)).add(offsetB);
-    b2.set(edgeB.at(i + 1)).add(offsetB);
+    b1.set(edgeB.points.at(i)).add(offsetB);
+    b2.set(edgeB.points.at(i + 1)).add(offsetB);
 
     if (FloatPoint.almostEqual(b1, b2)) {
       continue;
     }
 
     for (j = 0; j < sizeA - 1; ++j) {
-      a1.set(edgeA.at(j)).add(offsetA);
-      a2.set(edgeA.at(j + 1)).add(offsetA);
+      a1.set(edgeA.points.at(j)).add(offsetA);
+      a2.set(edgeA.points.at(j + 1)).add(offsetA);
 
       if (FloatPoint.almostEqual(a1, a2)) {
         continue; // ignore extremely small lines
@@ -469,38 +470,38 @@ function polygonProjectionDistance(
 ): number | null {
   const offsetA = new FloatPoint(a.offsetx || 0, a.offsety || 0);
   const offsetB = new FloatPoint(b.offsetx || 0, b.offsety || 0);
-  const edgeA: ArrayPolygon = a.slice(0) as ArrayPolygon;
-  const edgeB: ArrayPolygon = b.slice(0) as ArrayPolygon;
+  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(a.points);
+  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(b.points);
   const p: FloatPoint = new FloatPoint();
   const s1: FloatPoint = new FloatPoint();
   const s2: FloatPoint = new FloatPoint();
   let result: number | null = null;
   let distance: number | null = null;
-  let sizeA: number = edgeA.length;
-  let sizeB: number = edgeB.length;
+  let sizeA: number = edgeA.points.length;
+  let sizeB: number = edgeB.points.length;
   let minProjection: number | null = null;
   let i: number = 0;
   let j: number = 0;
 
   // close the loop for polygons
-  if (edgeA.at(0) != edgeA.at(sizeA - 1)) {
+  if (edgeA.points.at(0) != edgeA.points.at(sizeA - 1)) {
     ++sizeA;
-    edgeA.push(edgeA.at(0));
+    edgeA.points.push(edgeA.points.at(0));
   }
 
-  if (edgeB.at(0) != edgeB.at(sizeB - 1)) {
+  if (edgeB.points.at(0) != edgeB.points.at(sizeB - 1)) {
     ++sizeB;
-    edgeB.push(edgeB.at(0));
+    edgeB.points.push(edgeB.points.at(0));
   }
 
   for (i = 0; i < sizeB; ++i) {
     // the shortest/most negative projection of B onto A
     minProjection = null;
-    p.set(edgeB.at(i)).add(offsetB);
+    p.set(edgeB.points.at(i)).add(offsetB);
 
     for (j = 0; j < sizeA - 1; ++j) {
-      s1.set(edgeA.at(j)).add(offsetA);
-      s2.set(edgeA.at(j + 1)).add(offsetA);
+      s1.set(edgeA.points.at(j)).add(offsetA);
+      s2.set(edgeA.points.at(j + 1)).add(offsetA);
 
       if (
         almostEqual((s2.y - s1.y) * direction.x, (s2.x - s1.x) * direction.y)
@@ -536,8 +537,8 @@ function searchStartPoint(
   NFP: Array<Array<Point>> = []
 ): FloatPoint | null {
   // clone arrays
-  const edgeA: ArrayPolygon = A.slice() as ArrayPolygon;
-  const edgeB: ArrayPolygon = B.slice() as ArrayPolygon;
+  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(A.points);
+  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(B.points);
   const offset: FloatPoint = new FloatPoint();
   const point: FloatPoint = new FloatPoint();
   let i: number = 0;
@@ -547,30 +548,30 @@ function searchStartPoint(
   let projectionDistance2: number = 0;
   let vectorDistance: number = 0;
   let distance: number = 0;
-  let sizeA: number = edgeA.length;
-  let sizeB: number = edgeB.length;
+  let sizeA: number = edgeA.points.length;
+  let sizeB: number = edgeB.points.length;
 
   // close the loop for polygons
-  if (edgeA.at(0) != edgeA.at(sizeA - 1)) {
+  if (edgeA.points.at(0) != edgeA.points.at(sizeA - 1)) {
     ++sizeA;
-    edgeA.push(edgeA.at(0));
+    edgeA.points.push(edgeA.points.at(0));
   }
 
-  if (edgeB.at(0) != edgeB.at(sizeB - 1)) {
+  if (edgeB.points.at(0) != edgeB.points.at(sizeB - 1)) {
     ++sizeB;
-    edgeB.push(edgeB.at(0));
+    edgeB.points.push(edgeB.points.at(0));
   }
 
   for (i = 0; i < sizeA - 1; ++i) {
-    if (!edgeA.at(i).marked) {
-      edgeA.at(i).marked = true;
+    if (!edgeA.points.at(i).marked) {
+      edgeA.points.at(i).marked = true;
       for (j = 0; j < sizeB; ++j) {
-        offset.set(edgeA.at(i)).sub(edgeB.at(j));
+        offset.set(edgeA.points.at(i)).sub(edgeB.points.at(j));
         edgeB.offsetx = offset.x;
         edgeB.offsety = offset.y;
 
         for (k = 0; k < sizeB; ++k) {
-          if (pointInPolygon(point.set(edgeB.at(k)).add(offset), edgeA)) {
+          if (pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)) {
             // A and B are the same
             return null;
           }
@@ -581,7 +582,7 @@ function searchStartPoint(
         }
 
         // slide B along vector
-        point.set(edgeA.at(i + 1)).sub(edgeA.at(i));
+        point.set(edgeA.points.at(i + 1)).sub(edgeA.points.at(i));
         projectionDistance1 = polygonProjectionDistance(edgeA, edgeB, point);
         projectionDistance2 = polygonProjectionDistance(
           edgeB,
@@ -623,7 +624,7 @@ function searchStartPoint(
         edgeB.offsety = offset.y;
 
         for (k = 0; k < sizeB; ++k) {
-          if (pointInPolygon(point.set(edgeB.at(k)).add(offset), edgeA)) {
+          if (pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)) {
             break;
           }
 
@@ -675,43 +676,43 @@ function noFitPolygon(
   inside: boolean,
   searchEdges: boolean
 ) {
-  if (a.length < 3 || b.length < 3) {
+  if (a.points.length < 3 || b.points.length < 3) {
     return null;
   }
 
   a.offsetx = 0;
   a.offsety = 0;
 
-  const sizeA: number = a.length;
-  const sizeB: number = b.length;
+  const sizeA: number = a.points.length;
+  const sizeB: number = b.points.length;
   let i: number = 0;
   let j: number = 0;
-  let minA: number = a.at(0).y;
+  let minA: number = a.points.at(0).y;
   let minAIndex: number = 0;
-  let maxB: number = b.at(0).y;
+  let maxB: number = b.points.at(0).y;
   let maxBIndex: number = 0;
 
   for (i = 1; i < sizeA; ++i) {
-    a.at(i).marked = false;
+    a.points.at(i).marked = false;
 
-    if (a.at(i).y < minA) {
-      minA = a.at(i).y;
+    if (a.points.at(i).y < minA) {
+      minA = a.points.at(i).y;
       minAIndex = i;
     }
   }
 
   for (i = 1; i < sizeB; ++i) {
-    b.at(i).marked = false;
+    b.points.at(i).marked = false;
 
-    if (b.at(i).y > maxB) {
-      maxB = b.at(i).y;
+    if (b.points.at(i).y > maxB) {
+      maxB = b.points.at(i).y;
       maxBIndex = i;
     }
   }
 
   let startPoint: FloatPoint | null = !inside
     ? // shift B such that the bottom-most point of B is at the top-most point of A. This guarantees an initial placement with no intersections
-      FloatPoint.sub(b.at(maxBIndex), a.at(minAIndex))
+      FloatPoint.sub(b.points.at(maxBIndex), a.points.at(minAIndex))
     : // no reliable heuristic for inside
       searchStartPoint(a, b, true);
   let reference: FloatPoint = new FloatPoint();
@@ -722,7 +723,7 @@ function noFitPolygon(
   const point3: FloatPoint = new FloatPoint();
   const prevUnit: FloatPoint = new FloatPoint();
   const unitV: FloatPoint = new FloatPoint();
-  const nfpList: Array<ArrayPolygon> = [];
+  const nfpList: Array<Array<Point>> = [];
   const sumSize: number = sizeA + sizeB;
   let counter: number = 0;
   // maintain a list of touching points/edges
@@ -734,7 +735,7 @@ function noFitPolygon(
   let vectorB2: Point;
   let looped: boolean = false;
   let prevVector: Point | null = null;
-  let nfp: ArrayPolygon = null;
+  let nfp: Array<Point> = null;
   let vLength2: number = 0;
   let prevAIndex: number = 0;
   let nextAIndex: number = 0;
@@ -757,10 +758,10 @@ function noFitPolygon(
     b.offsety = offset.y;
 
     prevVector = null; // keep track of previous vector
-    nfp = new Array<Point>() as ArrayPolygon;
-    nfp.push(FloatPoint.add(b.at(0), startPoint));
+    nfp = new Array<Point>();
+    nfp.push(FloatPoint.add(b.points.at(0), startPoint));
 
-    reference.set(b.at(0)).add(startPoint);
+    reference.set(b.points.at(0)).add(startPoint);
     start.set(reference);
     counter = 0;
 
@@ -770,13 +771,13 @@ function noFitPolygon(
       // find touching vertices/edges
       for (i = 0; i < sizeA; ++i) {
         for (j = 0; j < sizeB; ++j) {
-          point1.set(b.at(j)).add(offset);
-          point2.set(b.at((j + 1) % sizeB)).add(offset);
-          point3.set(a.at(i));
+          point1.set(b.points.at(j)).add(offset);
+          point2.set(b.points.at((j + 1) % sizeB)).add(offset);
+          point3.set(a.points.at(i));
 
-          if (FloatPoint.almostEqual(a.at(i), point1)) {
+          if (FloatPoint.almostEqual(a.points.at(i), point1)) {
             touching.push({ type: 0, A: i, B: j });
-          } else if (point1.onSegment(a.at(i), a.at((i + 1) % sizeA))) {
+          } else if (point1.onSegment(a.points.at(i), a.points.at((i + 1) % sizeA))) {
             touching.push({ type: 1, A: (i + 1) % sizeA, B: j });
           } else if (point3.onSegment(point1, point2)) {
             touching.push({ type: 2, A: i, B: (j + 1) % sizeB });
@@ -789,23 +790,23 @@ function noFitPolygon(
 
       for (i = 0; i < touching.length; ++i) {
         touchingItem = touching.at(i);
-        vertexA = a.at(touchingItem.A);
+        vertexA = a.points.at(touchingItem.A);
         vertexA.marked = true;
 
         // adjacent A vertices
         prevAIndex = (touchingItem.A - 1 + sizeA) % sizeA; // loop
         nextAIndex = (touchingItem.A + 1) % sizeA; // loop
 
-        prevA = a.at(prevAIndex);
-        nextA = a.at(nextAIndex);
+        prevA = a.points.at(prevAIndex);
+        nextA = a.points.at(nextAIndex);
 
         // adjacent B vertices
-        vertexB = b.at(touchingItem.B);
+        vertexB = b.points.at(touchingItem.B);
         prevBIndex = (touchingItem.B - 1 + sizeB) % sizeB;
         nextBIndex = (touchingItem.B + 1) % sizeB;
 
-        prevB = b.at(prevBIndex);
-        nextB = b.at(nextBIndex);
+        prevB = b.points.at(prevBIndex);
+        nextB = b.points.at(nextBIndex);
 
         if (touchingItem.type == 0) {
           vectorA1 = FloatPoint.sub(vertexA, prevA);
@@ -967,9 +968,9 @@ function noFitPolygon(
 function noFitPolygonRectangle(
   a: ArrayPolygon,
   b: ArrayPolygon
-): Array<ArrayPolygon> | null {
-  const firstA: Point = a.at(0);
-  const firstB: Point = b.at(0);
+): Array<Array<Point>> | null {
+  const firstA: Point = a.points.at(0);
+  const firstB: Point = b.points.at(0);
   const minA: FloatPoint = FloatPoint.from(firstA);
   const maxA: FloatPoint = FloatPoint.from(firstA);
   const minB: FloatPoint = FloatPoint.from(firstB);
@@ -977,14 +978,14 @@ function noFitPolygonRectangle(
   let i: number = 0;
   let point: Point;
 
-  for (i = 1; i < a.length; ++i) {
-    point = a.at(i);
+  for (i = 1; i < a.points.length; ++i) {
+    point = a.points.at(i);
     minA.min(point);
     maxA.max(point);
   }
 
-  for (i = 1; i < b.length; ++i) {
-    point = b.at(i);
+  for (i = 1; i < b.points.length; ++i) {
+    point = b.points.at(i);
     minB.min(point);
     maxB.max(point);
   }
@@ -1006,8 +1007,7 @@ function noFitPolygonRectangle(
       { x: maxABSum.x - maxB.x, y: minABSum.y - minB.y },
       { x: maxABSum.x - maxB.x, y: maxABSum.y - maxB.y },
       { x: minABSum.x - minB.x, y: maxABSum.y - maxB.y }
-    ] as ArrayPolygon
-  ];
+    ]];
 }
 
 // clipperjs uses alerts for warnings
@@ -1018,19 +1018,19 @@ function alert(message: string) {
 function minkowskiDifference(
   A: ArrayPolygon,
   B: ArrayPolygon
-): Array<ArrayPolygon> {
+): Array<Array<Point>> {
   let i: number = 0;
   let clipperNfp;
   let largestArea: number | null = null;
-  let n: ArrayPolygon;
+  let n: Array<Point>;
   let sArea: number;
-  const clippedA = toClipperCoordinates(A);
-  const clippedB = toClipperCoordinates(B);
+  const clippedA = toClipperCoordinates(A.points);
+  const clippedB = toClipperCoordinates(B.points);
 
   ClipperLib.JS.ScaleUpPath(clippedA, 10000000);
   ClipperLib.JS.ScaleUpPath(clippedB, 10000000);
 
-  for (i = 0; i < clippedB.length; ++i) {
+  for (i = 0; i < clippedA.length; ++i) {
     clippedB.at(i).X *= -1;
     clippedB.at(i).Y *= -1;
   }
@@ -1049,8 +1049,8 @@ function minkowskiDifference(
   }
 
   for (i = 0; i < clipperNfp.length; ++i) {
-    clipperNfp.at(i).x += B.at(0).x;
-    clipperNfp.at(i).y += B.at(0).y;
+    clipperNfp.at(i).x += B.points.at(0).x;
+    clipperNfp.at(i).y += B.points.at(0).y;
   }
 
   return [clipperNfp];
@@ -1072,7 +1072,7 @@ export default function pairData(
 
   let a = rotatePolygon(pair.A, nfpData.at(2));
   let b = rotatePolygon(pair.B, nfpData.at(3));
-  let nfp: ArrayPolygon[];
+  let nfp: Array<Array<Point>>;
   let i = 0;
 
   if (nfpData.at(4) === 1) {
@@ -1110,7 +1110,7 @@ export default function pairData(
     for (i = 0; i < nfp.length; ++i) {
       if (!searchEdges || i == 0) {
         // if searchedges is active, only the first NFP is guaranteed to pass sanity check
-        if (Math.abs(polygonArea(nfp.at(i))) < Math.abs(polygonArea(a))) {
+        if (Math.abs(polygonArea(nfp.at(i))) < Math.abs(polygonArea(a.points))) {
           console.log(
             "NFP Area Error: ",
             Math.abs(polygonArea(nfp.at(i))),
@@ -1137,7 +1137,7 @@ export default function pairData(
 
       if (
         i > 0 &&
-        pointInPolygon(nfp.at(i).at(0), nfp.at(0)) &&
+        pointInPolygon(nfp.at(i).at(0), FloatPolygon.fromPoints(nfp.at(0))) &&
         polygonArea(nfp.at(i)) < 0
       ) {
         nfp.at(i).reverse();
@@ -1171,5 +1171,7 @@ export default function pairData(
     }
   }
 
-  return { value: nfp, numKey: pair.numKey };
+  let result: ArrayPolygon[] = nfp.map((poly : Array<Point>) => {return FloatPolygon.fromPoints(poly);});
+
+  return { value: result, numKey: pair.numKey };
 }
