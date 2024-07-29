@@ -15,13 +15,13 @@ import { toNestCoordinates, toClipperCoordinates } from "./geometry-utils";
  * additional parameters which define the accuracy to execute the operation.
  */
 export class FloatPolygon implements ArrayPolygon, BoundRect {
-  private _id: number = -1;
+  private _id: string;
   private _bounds: FloatRect | null;
   private _area: number = 0;
   private _isValid: boolean;
   private _offset: FloatPoint;
   private _children: FloatPolygon[];
-  private _source: number;
+  private _source: string;
   private _rotation: number;
   private _points: Array<FloatPoint>;
 
@@ -34,16 +34,13 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
    * @param source 
    * @returns 
    */
-  public static fromPoints(points: Array<Point> = [], source?: number): FloatPolygon {
+  public static fromPoints(points: Array<Point>, id: string): FloatPolygon {
     var result: FloatPolygon = new FloatPolygon();
 
     result.updatePoints(points);
     result._children = [];
 
-    if (typeof source !== 'undefined') {
-      result._source = source;
-    }
-
+    result._id = id;
     result._offset = new FloatPoint();
 
     return result;
@@ -60,7 +57,7 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
     this._isValid = this._points.length >= 3;
 
     if (!this._isValid) {
-      return;
+      throw new Error("Invalid points: " + JSON.stringify(points));
     }
 
     this._bounds = this._computeBounds();
@@ -88,7 +85,7 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
       points.push(this._points[i].clone().rotate(radianAngle));
     }
 
-    const result = FloatPolygon.fromPoints(points);
+    const result = FloatPolygon.fromPoints(points, this._id);
 
     if (this.hasChildren) {
       const childCount: number = this.childCount;
@@ -256,7 +253,7 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
     return this._bounds !== null ? this._bounds.height : 0;
   }
 
-  public get id(): number {
+  public get id(): string {
     return this._id;
   }
 
@@ -308,8 +305,16 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
     return this._children.length;
   }
 
-  public get source(): number {
+  public set source(source: string) {
+    this._source = source;
+  }
+
+  public get source(): string {
     return this._source;
+  }
+
+  public set rotation(rotation: number) {
+    this._rotation = rotation;
   }
 
   public get rotation(): number {

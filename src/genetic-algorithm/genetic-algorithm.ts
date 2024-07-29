@@ -1,5 +1,4 @@
 import FloatRect from "../geometry-util/float-rect";
-import { rotatePolygon } from "../geometry-util";
 import { ArrayPolygon, BoundRect, GeneticAlgorithmConfig } from "../interfaces";
 import Phenotype from "./phenotype";
 
@@ -101,7 +100,7 @@ export default class GeneticAlgorithm {
     angleList = GeneticAlgorithm.shuffle(angleList);
 
     for (i = 0; i < angleCount; ++i) {
-      rotatedPart = rotatePolygon(part, angleList[i]).bounds;
+      rotatedPart = part.rotate(angleList[i]).bounds;
 
       // don't use obviously bad angles where the part doesn't fit in the bin
       if (

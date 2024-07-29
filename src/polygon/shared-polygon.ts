@@ -44,8 +44,13 @@ export default class SharedPolygon {
     const result: ArrayPolygon[] = [];
     let i: number = 0;
 
-    for (i = 0; i < newPaths.length; ++i) {
-      result.push(this.clipperToSvg(newPaths[i]));
+    // TODO: modifying id is kinda sketchy since we're relying on parts always having a positive offset.
+    if (newPaths.lengths == 1) {
+      return [this.clipperToSvg(newPaths[0], polygon.id)];
+    } else {
+      for (i = 0; i < newPaths.length; ++i) {
+        result.push(this.clipperToSvg(newPaths[i], polygon.id + "_offset_" + i));
+      }
     }
 
     return result;
@@ -56,8 +61,8 @@ export default class SharedPolygon {
     return toClipperCoordinates(polygon.points, this._configuration.clipperScale);
   }
 
-  protected clipperToSvg(polygon: ClipperPoint[]): ArrayPolygon {
-    return FloatPolygon.fromPoints(toNestCoordinates(polygon, this._configuration.clipperScale));
+  protected clipperToSvg(polygon: ClipperPoint[], id: string): ArrayPolygon {
+    return FloatPolygon.fromPoints(toNestCoordinates(polygon, this._configuration.clipperScale), id);
   }
 
   protected get curveTolerance(): number {

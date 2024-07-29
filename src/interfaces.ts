@@ -1,3 +1,20 @@
+import { FloatPolygon } from "./geometry-util/float-polygon";
+
+/**
+ * 
+ */
+export interface Shape {
+  id: string;
+  points: Point[];
+}
+
+// TODO: this belongs in interfaces. But we need to split that file into public and internal-only interfaces.
+export interface Placement {
+  id: string,
+  translate: Point,
+  rotate: number
+}
+
 export interface Point {
   x: number;
   y: number;
@@ -7,6 +24,7 @@ export interface Point {
   start?: Point;
   end?: Point;
   nfp?: any;
+  source?: string;
 }
 
 export interface GeneticAlgorithmConfig {
@@ -28,7 +46,7 @@ export interface BoundRect {
  */
 export interface ArrayPolygon {
   // Unique identifier for this ArrayPolygon. Name collisions will cause unspecified behavior.
-  id: number;
+  id: string;
 
   bounds: BoundRect;
 
@@ -44,9 +62,6 @@ export interface ArrayPolygon {
   children?: ArrayPolygon[];
   // Degrees of rotation to be applied to this shape.
   rotation: number;
-  // Optional, an external id for this ArrayPolygon. Present for clients who need to record a secondary
-  // id to, eg, use when processing placement results.
-  source: number;
 
   area: number;
   // Is this ArrayPolygon a hole or a non-hole? See note about children. Top-level shapes should be
@@ -58,6 +73,8 @@ export interface ArrayPolygon {
   offsetx?: number;
   // TODO: does this ever get used?
   offsety?: number;
+
+  rotate(angle: number): FloatPolygon;
 }
 
 /**
@@ -84,16 +101,16 @@ export interface PairWorkerData {
 export interface NfpPair {
   A: ArrayPolygon;
   B: ArrayPolygon;
-  numKey: number;
+  key: string;
 }
 
 export interface PlacePairConfiguration {
   binPolygon: ArrayPolygon;
   paths: ArrayPolygon[];
-  ids: number[];
+  ids: string[]; // TODO: why is this even here?
   rotations: number[];
   config: SvgNestConfiguration;
-  nfpCache: Map<number, ArrayPolygon[]>;
+  nfpCache: Map<string, ArrayPolygon[]>;
 }
 
 export interface ClipperPoint {
@@ -103,11 +120,11 @@ export interface ClipperPoint {
 
 export interface PairDataResult {
   value: ArrayPolygon[];
-  numKey: number;
+  key: string;
 }
 
 export interface PlaceDataResult {
-  placements: Point[][];
+  placements: Placement[][];
   fitness: number;
   paths: ArrayPolygon[];
   area: number;

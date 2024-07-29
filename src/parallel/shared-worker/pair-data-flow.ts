@@ -5,7 +5,6 @@ import {
   polygonArea,
   getPolygonBounds,
   pointInPolygon,
-  rotatePolygon,
   toClipperCoordinates,
   toNestCoordinates
 } from "../../geometry-util";
@@ -411,8 +410,8 @@ function polygonSlideDistance(
   const offsetA: FloatPoint = new FloatPoint(a.offsetx || 0, a.offsety || 0);
   const offsetB: FloatPoint = new FloatPoint(b.offsetx || 0, b.offsety || 0);
   const dir: FloatPoint = FloatPoint.normalizeVector(direction);
-  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(a.points); // TODO: this should be a full clone?
-  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(b.points);
+  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(a.points, a.id); // TODO: this should be a full clone?
+  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(b.points, b.id);
   let sizeA: number = edgeA.points.length;
   let sizeB: number = edgeB.points.length;
   let result: number | null = null;
@@ -470,8 +469,8 @@ function polygonProjectionDistance(
 ): number | null {
   const offsetA = new FloatPoint(a.offsetx || 0, a.offsety || 0);
   const offsetB = new FloatPoint(b.offsetx || 0, b.offsety || 0);
-  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(a.points);
-  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(b.points);
+  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(a.points, a.id);
+  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(b.points, b.id);
   const p: FloatPoint = new FloatPoint();
   const s1: FloatPoint = new FloatPoint();
   const s2: FloatPoint = new FloatPoint();
@@ -537,8 +536,8 @@ function searchStartPoint(
   NFP: Array<Array<Point>> = []
 ): FloatPoint | null {
   // clone arrays
-  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(A.points);
-  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(B.points);
+  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(A.points, A.id);
+  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(B.points, B.id);
   const offset: FloatPoint = new FloatPoint();
   const point: FloatPoint = new FloatPoint();
   let i: number = 0;
@@ -1068,14 +1067,14 @@ export default function pairData(
   const searchEdges = env.searchEdges;
   const useHoles = env.useHoles;
 
-  const nfpData = keyToNFPData(pair.numKey, env.rotations);
+  const nfpData = keyToNFPData(pair.key, env.rotations);
 
-  let a = rotatePolygon(pair.A, nfpData.at(2));
-  let b = rotatePolygon(pair.B, nfpData.at(3));
+  let a = pair.A.rotate(nfpData["r1"]);
+  let b = pair.B.rotate(nfpData["r2"]);
   let nfp: Array<Array<Point>>;
   let i = 0;
 
-  if (nfpData.at(4) === 1) {
+  if (nfpData["inside"]) {
     if (isRectangle(a)) {
       nfp = noFitPolygonRectangle(a, b);
     } else {
@@ -1137,7 +1136,7 @@ export default function pairData(
 
       if (
         i > 0 &&
-        pointInPolygon(nfp.at(i).at(0), FloatPolygon.fromPoints(nfp.at(0))) &&
+        pointInPolygon(nfp.at(i).at(0), FloatPolygon.fromPoints(nfp.at(0), "")) &&
         polygonArea(nfp.at(i)) < 0
       ) {
         nfp.at(i).reverse();
@@ -1171,7 +1170,8 @@ export default function pairData(
     }
   }
 
-  let result: ArrayPolygon[] = nfp.map((poly : Array<Point>) => {return FloatPolygon.fromPoints(poly);});
+  // TODO: absent ID seems dangerous here.
+  let result: ArrayPolygon[] = nfp.map((poly : Array<Point>) => {return FloatPolygon.fromPoints(poly, "");});
 
-  return { value: result, numKey: pair.numKey };
+  return { value: result, key: pair.key };
 }

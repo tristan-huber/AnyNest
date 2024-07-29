@@ -1,7 +1,6 @@
 export {
   polygonArea,
   getPolygonBounds,
-  rotatePolygon,
   pointInPolygon,
   toClipperCoordinates,
   toNestCoordinates

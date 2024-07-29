@@ -47,33 +47,6 @@ export function getPolygonBounds(polygon: ArrayPolygon): FloatRect | null {
   return FloatRect.fromPoints(min, max);
 }
 
-export function rotatePolygon(
-  polygon: ArrayPolygon,
-  angle: number
-): ArrayPolygon {
-  const ext: Array<Point> = new Array<Point>;
-  const pointCount: number = polygon.points.length;
-  const radianAngle: number = (angle * Math.PI) / 180;
-  let i: number = 0;
-
-  for (i = 0; i < pointCount; ++i) {
-    ext.push(FloatPoint.from(polygon.points.at(i)).rotate(radianAngle));
-  }
-
-  const result: ArrayPolygon = FloatPolygon.fromPoints(ext);
-  if (polygon.children && polygon.children.length > 0) {
-    const childCount = polygon.children.length;
-
-    result.children = [];
-
-    for (i = 0; i < childCount; ++i) {
-      result.children.push(rotatePolygon(polygon.children[i], angle));
-    }
-  }
-
-  return result;
-}
-
 // return true if point is in the polygon, false if outside, and null if exactly on a point or edge
 export function pointInPolygon(point: Point, polygon: ArrayPolygon): boolean {
   if (polygon.points.length < 3) {

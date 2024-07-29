@@ -32,6 +32,15 @@ export default class TreePolygon extends SharedPolygon {
     return this._polygons[index];
   }
 
+  byId(id: string): ArrayPolygon {
+    let result = this._polygons.filter((poly) => poly.id == id);
+    if (result.length == 1) {
+      return result[0];
+    }
+    // TODO: throw?
+    return undefined;
+  }
+
   flat(index: number) {
     const part = this._polygons[index];
 

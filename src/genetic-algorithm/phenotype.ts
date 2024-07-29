@@ -1,24 +1,24 @@
 import { ArrayPolygon } from "../interfaces";
 
 export default class Phenotype {
-  private _placemant: Array<ArrayPolygon>;
+  private _placement: Array<ArrayPolygon>;
   private _rotation: Array<number>;
   private _fitness: number = 0;
 
   constructor(placement: Array<ArrayPolygon>, rotation: Array<number>) {
-    this._placemant = placement;
+    this._placement = placement;
     this._rotation = rotation;
   }
 
   public cut(cutPoint: number): Phenotype {
     return new Phenotype(
-      this._placemant.slice(0, cutPoint),
+      this._placement.slice(0, cutPoint),
       this._rotation.slice(0, cutPoint)
     );
   }
 
   public clone(): Phenotype {
-    return new Phenotype(this._placemant.slice(), this._rotation.slice());
+    return new Phenotype(this._placement.slice(), this._rotation.slice());
   }
 
   public mate(phenotype: Phenotype): void {
@@ -31,18 +31,18 @@ export default class Phenotype {
       rotation = phenotype.rotation[i];
 
       if (!this._contains(placement.id)) {
-        this._placemant.push(placement);
+        this._placement.push(placement);
         this._rotation.push(rotation);
       }
     }
   }
 
-  private _contains(id: number): boolean {
+  private _contains(id: string): boolean {
     let i = 0;
     const size = this.size;
 
     for (i = 0; i < size; ++i) {
-      if (this._placemant[i].id === id) {
+      if (this._placement[i].id === id) {
         return true;
       }
     }
@@ -51,7 +51,7 @@ export default class Phenotype {
   }
 
   public get placement(): Array<ArrayPolygon> {
-    return this._placemant;
+    return this._placement;
   }
 
   public get rotation(): Array<number> {
@@ -59,7 +59,7 @@ export default class Phenotype {
   }
 
   public get size(): number {
-    return this._placemant.length;
+    return this._placement.length;
   }
 
   public get fitness(): number {

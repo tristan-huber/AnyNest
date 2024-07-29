@@ -13,21 +13,15 @@ import {
   PairDataResult,
   PlaceDataResult,
   Point,
+  Shape,
+  Placement,
   SvgNestConfiguration
 } from "./interfaces";
 import Phenotype from "./genetic-algorithm/phenotype";
 import pairData from "./parallel/shared-worker/pair-data-flow";
 import placePaths from "./parallel/shared-worker/place-path-flow";
-import FloatPoint from "./geometry-util/float-point";
-import {FloatPolygon} from "./geometry-util/float-polygon";
+import { FloatPolygon } from "./geometry-util/float-polygon";
 
-/**
- * 
- */
-export interface Shape {
-  id: number;
-  points: Point[];
-}
 
 export class AnyNest {
   private _best: PlaceDataResult = null;
@@ -37,7 +31,7 @@ export class AnyNest {
   private _configuration: SvgNestConfiguration;
   private _tree: TreePolygon = null;
   private _binPolygon: FloatPolygon = null;
-  private _nfpCache: Map<number, ArrayPolygon[]>;
+  private _nfpCache: Map<string, ArrayPolygon[]>;
   private _workerTimer: NodeJS.Timeout = null;
 
   constructor() {
@@ -57,11 +51,7 @@ export class AnyNest {
   }
 
   private _shapeToPolygon(shape: Shape): FloatPolygon {
-    const points: FloatPoint[] = [];
-    for (var i = 0; i < shape.points.length; i += 3) {
-      points.push(new FloatPoint(shape.points[i][0], shape.points[i][1]));
-    }
-    return FloatPolygon.fromPoints(points, shape.id);
+    return FloatPolygon.fromPoints(shape.points, shape.id);
   }
 
   /**
@@ -162,30 +152,32 @@ export class AnyNest {
   /**
    * Start the nesting algorithm. A genetic algorithm which produces generations of
    * possible packings.
-   * 
-   * @param generations - number of generations to run the genetic algorithm.
-   * @param progressCallback(progress: number) - progress on this generation of nestings. [0:1]
+   *
+   * @param progressCallback
    *        called periodically as the algorithm runs, approx 10/sec.
-   * @param displayCallback(placements: Point[][], utilization: number, numPartsPlaced: number, numParts: number)
-   *        called at the end of a generation if a new and better placement has been identified.
-   *        placements - a list of offsets and rotations to be applied to each part.
+   *        progress - progress on the current generation of nestings. [0:1]
+   * @param displayCallback(
+   *        called at the end of a generation with the best placement that has been identified so far.
+   *        placements - a list of list of Placements. If all parts cannot be fit in a single bin
+   *                   then a list of Placments will be specified for each bin which is needed in order to
+   *                   fit all parts.
    *        utilization - portion of the bin which is used
-   * // TODO: utilization needs to be more clearly defined. Eg: are the tiny spaces between shapes counted as utilized?
-   * // they're definitely waste. Or is this just a measure of how much width is used?
-   *        numPartsPlaced - the number of parts which were successfully placed
-   *        numParts - Total parts which were attempted to be placed (TODO: why do we have this? the caller should already know..)
-   * @returns false if this algorithm failed to start (eg: setBin or setParts have not been called)
+   *        partsPlaced - the number of parts which were successfully placed
+   * If parts cannot be placed (eg: some part is too big to fit in any bin), then displayCallback will be
+   * called with an undefined placements value.
    */
-  start(progressCallback: Function, displayCallback: Function, generations?: number,): boolean {
+  // TODO:  consider if the no-fit case should be an exception instead.
+  start(
+    progressCallback: (progress: number) => void,
+    displayCallback: (placements: Placement[][], untilization: number, partsPlaced: number) => void
+  ): void {
     console.log("start called on anynest");
-    if (!this._binPolygon || !this._tree) {
-      console.log("bin: " + this._binPolygon + " tree: " + this._tree);
-      return false;
+    if (!this._binPolygon) {
+      throw new Error("Missing bin for packing. Ensure you have called setBin");
     }
 
-    if (!this._binPolygon.isValid) {
-      console.log("bin polygon invalid");
-      return false;
+    if (!this._tree) {
+      throw new Error("Missing shapes for nesting. Ensure you have called setParts");
     }
 
     this._tree.removeDuplicats();
@@ -194,9 +186,9 @@ export class AnyNest {
     this._workerTimer = setInterval(() => {
       if (!this._isWorking) {
         try {
-          this._launchWorkers(generations, displayCallback);
+          this._launchWorkers(displayCallback);
           this._isWorking = true;
-        } catch(err) {
+        } catch (err) {
           // TODO: should we throw this up to caller? probs.
           console.log(err);
         }
@@ -204,8 +196,6 @@ export class AnyNest {
 
       progressCallback(this._progress);
     }, 100);
-
-    return true;
   }
 
   /**
@@ -231,12 +221,12 @@ export class AnyNest {
 
       results.push(pairData(
         nfpPairs[0], {
-              rotations: this._configuration.rotations,
-              binPolygon: this._binPolygon, // TODO: this is unused.
-              searchEdges: this._configuration.exploreConcave,
-              useHoles: this._configuration.useHoles
-            }
-        ));
+        rotations: this._configuration.rotations,
+        binPolygon: this._binPolygon, // TODO: this is unused.
+        searchEdges: this._configuration.exploreConcave,
+        useHoles: this._configuration.useHoles
+      }
+      ));
       console.log("pushed another nfpPair");
       this._progress = results.length / nfpPairs.length;
     }
@@ -244,7 +234,7 @@ export class AnyNest {
     return results;
   }
 
-  private _launchWorkers(generations: number, displayCallback: Function): void {
+  private _launchWorkers(displayCallback: (placements: Placement[][], untilization: number, partsPlaced: number) => void): void {
     console.log("_launchWorkers called");
     let i: number = 0;
     let j: number = 0;
@@ -270,11 +260,11 @@ export class AnyNest {
     const placeList: ArrayPolygon[] = individual.placement;
     const rotations: number[] = individual.rotation;
     const placeCount: number = placeList.length;
-    const ids: number[] = [];
+    const ids: string[] = [];
     const nfpPairs: NfpPair[] = [];
-    const newCache: Map<number, ArrayPolygon[]> = new Map();
+    const newCache: Map<string, ArrayPolygon[]> = new Map();
     let part: ArrayPolygon;
-    let numKey: number = 0;
+    let key: string;
 
     const updateCache = (
       polygon1: ArrayPolygon,
@@ -283,7 +273,7 @@ export class AnyNest {
       rotation2: number,
       inside: boolean
     ) => {
-      numKey = generateNFPCacheKey(
+      key = generateNFPCacheKey(
         this._configuration.rotations,
         inside,
         polygon1,
@@ -292,10 +282,10 @@ export class AnyNest {
         rotation2
       );
 
-      if (!this._nfpCache.has(numKey)) {
-        nfpPairs.push({ A: polygon1, B: polygon2, numKey });
+      if (!this._nfpCache.has(key)) {
+        nfpPairs.push({ A: polygon1, B: polygon2, key });
       } else {
-        newCache.set(numKey, this._nfpCache.get(numKey));
+        newCache.set(key, this._nfpCache.get(key));
       }
     };
 
@@ -341,7 +331,7 @@ export class AnyNest {
 
             if (nfp) {
               // a null nfp means the nfp could not be generated, either because the parts simply don't fit or an error in the nfp algo
-              this._nfpCache.set(nfp.numKey, nfp.value);
+              this._nfpCache.set(nfp.key, nfp.value);
             }
           }
         }
@@ -352,65 +342,68 @@ export class AnyNest {
         console.log("placing paths");
         return [placePaths(placeList.slice(), placementWorkerData)];
       })
-     .then(
-          (placements: PlaceDataResult[]) => {
-            if (!placements || placements.length == 0) {
-              return;
-            }
-
-            let i: number = 0;
-            let j: number = 0;
-            let bestResult = placements[0];
-
-            individual.fitness = bestResult.fitness;
-
-            for (i = 1; i < placements.length; ++i) {
-              if (placements[i].fitness < bestResult.fitness) {
-                bestResult = placements[i];
-              }
-            }
-
-            if (!this._best || bestResult.fitness < this._best.fitness) {
-              this._best = bestResult;
-
-              let placedArea: number = 0;
-              let totalArea: number = 0;
-              let numPlacedParts: number = 0;
-              let bestPlacement: Point[];
-              const numParts: number = placeList.length;
-              const binArea: number = Math.abs(this._binPolygon.area);
-
-              for (i = 0; i < this._best.placements.length; ++i) {
-                totalArea += binArea;
-                bestPlacement = this._best.placements[i];
-
-                numPlacedParts += bestPlacement.length;
-
-                for (j = 0; j < bestPlacement.length; ++j) {
-                  placedArea += Math.abs(
-                    polygonArea(this._tree.at(bestPlacement[j].id).points)
-                  );
-                }
-              }
-
-              displayCallback(
-                this._best.placements,
-                placedArea / totalArea,
-                numPlacedParts,
-                numParts
-              );
-            } else {
-              displayCallback();
-            }
-            this._isWorking = false;
-          },
-          function (err) {
-            console.log(err);
+      .then(
+        (placements: PlaceDataResult[]) => {
+          if (!placements || placements.length == 0) {
+            return;
           }
-        )
-     .catch((err) => {
-       console.log(err);
-     });
-     // TODO: should we return this future chain as well?
+
+          let i: number = 0;
+          let j: number = 0;
+          let bestResult = placements[0];
+
+          individual.fitness = bestResult.fitness;
+
+          for (i = 1; i < placements.length; ++i) {
+            if (placements[i].fitness < bestResult.fitness) {
+              bestResult = placements[i];
+            }
+          }
+
+          if (!this._best || bestResult.fitness < this._best.fitness) {
+            this._best = bestResult;
+
+            let placedArea: number = 0;
+            let totalArea: number = 0;
+            let numPlacedParts: number = 0;
+            let bestPlacement: Placement[];
+            const numParts: number = placeList.length;
+            const binArea: number = Math.abs(this._binPolygon.area);
+
+            for (i = 0; i < this._best.placements.length; ++i) {
+              totalArea += binArea;
+              bestPlacement = this._best.placements[i];
+
+              numPlacedParts += bestPlacement.length;
+
+              for (j = 0; j < bestPlacement.length; ++j) {
+                if (!bestPlacement[j]) {
+                  throw new Error("missing entry in placement: " + JSON.stringify(this._best));
+                }
+                let part: ArrayPolygon = this._tree.byId(bestPlacement[j].id);
+                placedArea += Math.abs(
+                  polygonArea(part.points)
+                );
+              }
+            }
+
+            displayCallback(
+              this._best.placements,
+              placedArea / totalArea,
+              numPlacedParts
+            );
+          } else {
+            // TODO: spec promises to call displayCallback once per generation...
+          }
+          this._isWorking = false;
+        },
+        function (err) {
+          console.log(err);
+        }
+      )
+      .catch((err) => {
+        console.log(err);
+      });
+    // TODO: should we return this future chain as well?
   }
 }

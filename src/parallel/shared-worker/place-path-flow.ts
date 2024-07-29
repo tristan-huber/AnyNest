@@ -3,7 +3,6 @@ import ClipperLib from "js-clipper";
 import {
   polygonArea,
   getPolygonBounds,
-  rotatePolygon,
   toClipperCoordinates,
   toNestCoordinates
 } from "../../geometry-util";
@@ -15,6 +14,7 @@ import {
   ClipperPoint,
   PlaceDataResult,
   PlacePairConfiguration,
+  Placement,
   Point
 } from "../../interfaces";
 import { FloatPolygon } from "../../geometry-util/float-polygon";
@@ -29,7 +29,7 @@ export default function placePaths(
 
   // rotate paths by given rotation
   const paths = [];
-  const allPlacements = [];
+  const allPlacements: Placement[][] = [];
   const binArea: number = Math.abs(env.binPolygon.area);
   let i: number = 0;
   let j: number = 0;
@@ -40,10 +40,10 @@ export default function placePaths(
   let rotatedPath: ArrayPolygon;
   let fitness: number = 0;
   let nfp;
-  let numKey: number = 0;
+  let key: string;
   let placed;
-  let placements;
-  let binNfp;
+  let placements: Placement[];
+  let binNfp: ArrayPolygon[];
   let error;
   let position;
   let clipperBinNfp;
@@ -59,20 +59,18 @@ export default function placePaths(
   let minX: number | null = null;
   let nf;
   let area: number;
-  let shiftVector: Point;
+  let shiftVector: Placement;
   let clone: ClipperPoint[];
   const minScale: number =
     0.1 * env.config.clipperScale * env.config.clipperScale;
   const cleanTrashold: number = 0.0001 * env.config.clipperScale;
-  const emptyPath: ArrayPolygon = { id: -1, rotation: 0 } as ArrayPolygon;
+  const emptyPath: ArrayPolygon = { id: "", rotation: 0 } as ArrayPolygon;
   const rotations: number = env.config.rotations;
 
   for (i = 0; i < inputPaths.length; ++i) {
     path = inputPaths.at(i);
-    rotatedPath = rotatePolygon(path, path.rotation);
+    rotatedPath = path.rotate(path.rotation);
     rotatedPath.rotation = path.rotation;
-    rotatedPath.source = path.source;
-    rotatedPath.id = path.id;
     paths.push(rotatedPath);
   }
 
@@ -85,8 +83,8 @@ export default function placePaths(
       path = paths.at(i);
 
       // inner NFP
-      numKey = generateNFPCacheKey(rotations, true, emptyPath, path);
-      binNfp = env.nfpCache.get(numKey);
+      key = generateNFPCacheKey(rotations, true, emptyPath, path);
+      binNfp = env.nfpCache.get(key);
 
       // part unplaceable, skip
       if (!binNfp || binNfp.length == 0) {
@@ -97,9 +95,9 @@ export default function placePaths(
       error = false;
 
       for (j = 0; j < placed.length; ++j) {
-        numKey = generateNFPCacheKey(rotations, false, placed.at(j), path);
+        key = generateNFPCacheKey(rotations, false, placed.at(j), path);
 
-        if (!env.nfpCache.has(numKey)) {
+        if (!env.nfpCache.has(key)) {
           error = true;
           break;
         }
@@ -115,14 +113,15 @@ export default function placePaths(
       if (placed.length == 0) {
         // first placement, put it on the left
         for (j = 0; j < binNfp.length; ++j) {
-          for (k = 0; k < binNfp.at(j).length; ++k) {
+          let nfpPoly: ArrayPolygon = binNfp.at(j);
+          for (k = 0; k < nfpPoly.points.length; ++k) {
             if (
               position === null ||
-              binNfp.at(j).at(k).x - path.points.at(0).x < position.x
+              nfpPoly.points.at(k).x - path.points.at(0).x < position.x
             ) {
               position = {
-                x: binNfp.at(j).at(k).x - path.points.at(0).x,
-                y: binNfp.at(j).at(k).y - path.points.at(0).y,
+                x: nfpPoly.points.at(k).x - path.points.at(0).x,
+                y: nfpPoly.points.at(k).y - path.points.at(0).y,
                 id: path.id,
                 rotation: path.rotation
               };
@@ -139,7 +138,7 @@ export default function placePaths(
       clipperBinNfp = [];
 
       for (j = 0; j < binNfp.length; ++j) {
-        clipperBinNfp.push(toClipperCoordinates(binNfp.at(j)));
+        clipperBinNfp.push(toClipperCoordinates(binNfp.at(j).points));
       }
 
       ClipperLib.JS.ScaleUpPaths(clipperBinNfp, env.config.clipperScale);
@@ -148,19 +147,19 @@ export default function placePaths(
       combinedNfp = new ClipperLib.Paths();
 
       for (j = 0; j < placed.length; ++j) {
-        numKey = generateNFPCacheKey(rotations, false, placed.at(j), path);
+        key = generateNFPCacheKey(rotations, false, placed.at(j), path);
 
-        if (!env.nfpCache.has(numKey)) {
+        if (!env.nfpCache.has(key)) {
           continue;
         }
 
-        nfp = env.nfpCache.get(numKey);
+        nfp = env.nfpCache.get(key);
 
         for (k = 0; k < nfp.length; ++k) {
           clone = toClipperCoordinates(nfp.at(k));
           for (m = 0; m < clone.length; ++m) {
-            clone.at(m).X += placements.at(j).x;
-            clone.at(m).Y += placements.at(j).y;
+            clone.at(m).X += placements.at(j).translate.x;
+            clone.at(m).Y += placements.at(j).translate.y;
           }
 
           ClipperLib.JS.ScaleUpPath(clone, env.config.clipperScale);
@@ -244,24 +243,25 @@ export default function placePaths(
           for (m = 0; m < placed.length; ++m) {
             for (n = 0; n < placed.at(m).length; ++n) {
               allPoints.push(
-                FloatPoint.from(placed.at(m).at(n)).add(placements.at(m))
+                FloatPoint.from(placed.at(m).at(n)).add(placements.at(m).translate)
               );
             }
           }
 
           shiftVector = {
-            x: nf.at(k).x - path.points.at(0).x,
-            y: nf.at(k).y - path.points.at(0).y,
+            translate: {
+              x: nf.at(k).x - path.points.at(0).x,
+              y: nf.at(k).y - path.points.at(0).y
+            },
             id: path.id,
-            rotation: path.rotation,
-            nfp: combinedNfp
+            rotate: path.rotation,
           };
 
           for (m = 0; m < path.points.length; ++m) {
-            allPoints.push(FloatPoint.from(path.points.at(m)).add(shiftVector));
+            allPoints.push(FloatPoint.from(path.points.at(m)).add(shiftVector.translate));
           }
 
-          rectBounds = getPolygonBounds(FloatPolygon.fromPoints(allPoints));
+          rectBounds = getPolygonBounds(FloatPolygon.fromPoints(allPoints, ""));
 
           // weigh width more, to help compress in direction of gravity
           area = rectBounds.width * 2 + rectBounds.height;
@@ -270,12 +270,12 @@ export default function placePaths(
             minArea === null ||
             area < minArea ||
             (almostEqual(minArea, area) &&
-              (minX === null || shiftVector.x < minX))
+              (minX === null || shiftVector.translate.x < minX))
           ) {
             minArea = area;
             minWidth = rectBounds.width;
             position = shiftVector;
-            minX = shiftVector.x;
+            minX = shiftVector.translate.x;
           }
         }
       }

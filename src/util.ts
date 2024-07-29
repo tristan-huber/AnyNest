@@ -18,50 +18,37 @@ export function generateNFPCacheKey(
   polygon2: ArrayPolygon,
   rotation1: number = polygon1.rotation,
   rotation2: number = polygon2.rotation
-) {
+): string {
   const rotationOffset: number = Math.round(360 / rotationSplit);
   const rotationIndex1: number = Math.round(rotation1 / rotationOffset);
   const rotationIndex2: number = Math.round(rotation2 / rotationOffset);
 
-  return (
-    ((polygon1.id + 1) << 0) +
-    ((polygon2.id + 1) << 10) +
-    (rotationIndex1 << 19) +
-    (rotationIndex2 << 23) +
-    ((inside ? 1 : 0) << 27)
-  );
+  return JSON.stringify(
+    {
+      "id1": polygon1.id,
+      "id2": polygon2.id,
+      "r1": rotation1,
+      "r2": rotation2,
+      "inside": inside
+    }
+  )
 }
 
 export function keyToNFPData(
-  numKey: number,
+  key: string,
   rotationSplit: number
 ): Float32Array {
   const rotationOffset: number = Math.round(360 / rotationSplit);
   const result = new Float32Array(5);
   let accumulator: number = 0;
-  const inside = numKey >> 27;
 
-  accumulator += inside << 27;
-
-  const rotationIndexB = (numKey - accumulator) >> 23;
-
-  accumulator += rotationIndexB << 23;
-
-  const rotationIndexA = (numKey - accumulator) >> 19;
-
-  accumulator += rotationIndexA << 19;
-
-  const idB = (numKey - accumulator) >> 10;
-
-  accumulator += idB << 10;
-
-  const idA = numKey - accumulator;
-
+  /*
   result[4] = inside;
   result[3] = rotationIndexB * rotationOffset;
   result[2] = rotationIndexA * rotationOffset;
   result[1] = idB - 1;
   result[0] = idA - 1;
-
-  return result;
+*/
+  return JSON.parse(key)
+ // return result;
 }
