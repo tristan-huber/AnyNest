@@ -22,7 +22,7 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
   private _offset: FloatPoint;
   private _children: FloatPolygon[];
   private _source: string;
-  private _rotation: number;
+  private _rotation: number = 0;
   private _points: Array<FloatPoint>;
 
   private constructor() {}
@@ -75,6 +75,7 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
   }
 
   // TODO: this doesn't operate as a mutation method, probably should be updated.
+  // TODO: should this be around some point besides the origin?
   public rotate(angle: number): FloatPolygon {
     const points: Array<Point> = new Array<Point>();
     const pointCount: number = this._points.length;

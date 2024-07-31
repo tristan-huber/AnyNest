@@ -83,11 +83,12 @@ export default function placePaths(
       path = paths.at(i);
 
       // inner NFP
-      key = generateNFPCacheKey(rotations, true, emptyPath, path);
+      key = generateNFPCacheKey(rotations, true, env.binPolygon, path);
       binNfp = env.nfpCache.get(key);
 
       // part unplaceable, skip
       if (!binNfp || binNfp.length == 0) {
+        // TODO: I think this is where we catch if a single part us unplacably large.
         continue;
       }
 
@@ -120,10 +121,12 @@ export default function placePaths(
               nfpPoly.points.at(k).x - path.points.at(0).x < position.x
             ) {
               position = {
-                x: nfpPoly.points.at(k).x - path.points.at(0).x,
-                y: nfpPoly.points.at(k).y - path.points.at(0).y,
+                translate: {
+                  x: nfpPoly.points.at(k).x - path.points.at(0).x,
+                  y: nfpPoly.points.at(k).y - path.points.at(0).y
+                },
                 id: path.id,
-                rotation: path.rotation
+                rotate: path.rotation
               };
             }
           }

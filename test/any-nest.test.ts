@@ -1,6 +1,6 @@
 import {describe, expect, test} from '@jest/globals';
 import {AnyNest} from '../src/any-nest';
-import {Shape} from '../src/interfaces';
+import {Shape, Placement} from '../src/interfaces';
 
 describe('anynest module', () => {
   let anyNest: AnyNest;
@@ -15,13 +15,13 @@ describe('anynest module', () => {
     jest.clearAllMocks();
   });
 
-  test('setBin not crash', () => {
+  test('setBinNoCrash', () => {
     expect(anyNest.setBin({id: 'bin', points: [
         {x: 0, y: 0}, {x: 0, y: 100}, {x: 100, y: 100}, {x: 100, y: 0}]}))
         .toBe(undefined);
   });
 
-  test('a single small part can be positioned within a large bin and its position is provided to the displayCallback function', () => {
+  test('singlePartFits', () => {
     const bin: Shape = {
       id: 'bin1',
       points: [
@@ -56,8 +56,28 @@ describe('anynest module', () => {
         reject(error);
       }
     }).then(() => {
-      expect(displayCallback).toHaveBeenCalledWith(expect.anything()); // Check if displayCallback is called
-      expect(displayCallback.mock.calls[0][0].id).toBe('part1'); // Check if the correct part is passed
+      // Expect at least one call within 1 second.
+      expect(displayCallback.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      // Our nesting algo involves a randomized first step, so we need to logically
+      // interpret the result rather than having a strict expectation.
+      displayCallback.mock.calls.map((call) => {
+        let placements: Placement[][] = call[0];
+        expect(placements).toHaveLength(1); // Should use only one bin
+        expect(placements[0]).toHaveLength(1); // Place a single part
+        expect(placements[0][0].id).toBe("part1"); // It's the part we provided
+
+        var shifted: Shape = applyPlacement(part, placements);
+
+        // Placement should shift our shape to (0, 0)
+        expect(shifted.points).toContainEqual({x: 0, y: 0});
+        expect(shifted.points).toContainEqual({x: 0, y: 2});
+        expect(shifted.points).toContainEqual({x: 2, y: 2});
+        expect(shifted.points).toContainEqual({x: 2, y: 0});
+
+        // Utilization in this case is area of shape / area of bin.
+        expect(call[1]).toBeCloseTo(2 * 2 / (10 * 10), 4);
+      });
     }).finally(() => {
       anyNest.stop();
     });
@@ -65,7 +85,7 @@ describe('anynest module', () => {
     return result;
   });
 
-  test('two parts which exactly fill the bin can be placed and successfully get a displayCallback', () => {
+  test('multiPartExactFill', () => {
     const bin: Shape = {
       id: 'bin1',
       points: [
@@ -105,13 +125,24 @@ describe('anynest module', () => {
         setTimeout(() => {
           anyNest.stop();
           resolve(true);
-        }, 1000); // Adjust timeout based on the expected duration of the async operation
+        }, 2000); // Adjust timeout based on the expected duration of the async operation
       } catch (error) {
         reject(error);
       }
     }).then(() => {
-      expect(displayCallback).toHaveBeenCalledWith(expect.anything()); // Check if displayCallback is called
-      expect(displayCallback.mock.calls[0][0].id).toBe('part2'); // Check if the correct part is passed
+      expect(displayCallback.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      let call = displayCallback.mock.calls[displayCallback.mock.calls.length - 1];
+      let placements: Placement[][] = call[0];
+      expect(placements).toHaveLength(1); // Should use only one bin
+      expect(placements[0]).toHaveLength(2); // Place a single part
+
+      expect(placements[0].map((p) => p.id)).toContainEqual("part1");
+      expect(placements[0].map((p) => p.id)).toContainEqual("part1");
+
+      // 100% utilization
+      expect(call[1]).toBeCloseTo(1, 4);
+
     }).finally(() => {
       anyNest.stop();
     });
@@ -184,3 +215,32 @@ describe('anynest module', () => {
   });
   */
 });
+
+// Applies the given placement to the given shape. Resulting points are
+// rounded to 5 decimal places.
+function applyPlacement(shape: Shape, placements: Placement[][]): Shape {
+  var filtered = placements.flat().filter((placement) => placement.id == shape.id);
+  if (filtered.length != 1) {
+    throw new Error("Failed to find placement for shape " + JSON.stringify(shape) + " among placements: " + JSON.stringify(placements));
+  }
+  const placement = filtered[0];
+
+  const result: Shape = {id: shape.id, points: []};
+  const cos: number = Math.cos(placement.rotate * Math.PI / 180);
+  const sin: number = Math.sin(placement.rotate * Math.PI / 180);
+
+  // Rotate first then translate.
+  shape.points.map((point) => {
+    result.points.push({
+      x: round((point.x * cos - point.y * sin) + placement.translate.x, 5),
+      y: round((point.x * sin + point.y * cos) + placement.translate.y, 5),
+  })});
+  return result;
+}
+
+function round(val: number, decimals: number): number {
+  const power = Math.pow(10, decimals);
+  var result = Math.round(val * power) / power;
+  if (result == -0) {result = 0;}
+  return result;
+}

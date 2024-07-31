@@ -12,7 +12,6 @@ import {
   NfpPair,
   PairDataResult,
   PlaceDataResult,
-  Point,
   Shape,
   Placement,
   SvgNestConfiguration
@@ -162,14 +161,13 @@ export class AnyNest {
    *                   then a list of Placments will be specified for each bin which is needed in order to
    *                   fit all parts.
    *        utilization - portion of the bin which is used
-   *        partsPlaced - the number of parts which were successfully placed
    * If parts cannot be placed (eg: some part is too big to fit in any bin), then displayCallback will be
    * called with an undefined placements value.
    */
   // TODO:  consider if the no-fit case should be an exception instead.
   start(
     progressCallback: (progress: number) => void,
-    displayCallback: (placements: Placement[][], untilization: number, partsPlaced: number) => void
+    displayCallback: (placements: Placement[][], untilization: number) => void
   ): void {
     console.log("start called on anynest");
     if (!this._binPolygon) {
@@ -234,7 +232,7 @@ export class AnyNest {
     return results;
   }
 
-  private _launchWorkers(displayCallback: (placements: Placement[][], untilization: number, partsPlaced: number) => void): void {
+  private _launchWorkers(displayCallback: (placements: Placement[][], untilization: number) => void): void {
     console.log("_launchWorkers called");
     let i: number = 0;
     let j: number = 0;
@@ -389,8 +387,7 @@ export class AnyNest {
 
             displayCallback(
               this._best.placements,
-              placedArea / totalArea,
-              numPlacedParts
+              placedArea / totalArea
             );
           } else {
             // TODO: spec promises to call displayCallback once per generation...
