@@ -215,17 +215,16 @@ export class AnyNest {
     // theoretically be made faster by having a single shared queue between batchSize
     // persistant workers. That would require a more complex implementation that what's
     // here.
-    for (let i = 0; i < nfpPairs.length; i += batchSize) {
+    for (let i = 0; i < nfpPairs.length; i ++) {
 
       results.push(pairData(
-        nfpPairs[0], {
+        nfpPairs[i], {
         rotations: this._configuration.rotations,
         binPolygon: this._binPolygon, // TODO: this is unused.
         searchEdges: this._configuration.exploreConcave,
         useHoles: this._configuration.useHoles
       }
       ));
-      console.log("pushed another nfpPair");
       this._progress = results.length / nfpPairs.length;
     }
 
@@ -233,7 +232,6 @@ export class AnyNest {
   }
 
   private _launchWorkers(displayCallback: (placements: Placement[][], untilization: number) => void): void {
-    console.log("_launchWorkers called");
     let i: number = 0;
     let j: number = 0;
 
@@ -315,11 +313,9 @@ export class AnyNest {
     const results: PairDataResult[] = [];
     const pairResult = this._calculateNfpPairs(4, nfpPairs);
 
-    console.log("pair result promise established");
 
     pairResult.then(
       (generatedNfp: PairDataResult[]) => {
-        console.log("handling pair results" + generatedNfp);
         if (generatedNfp) {
           let i: number = 0;
           let nfp: PairDataResult;
@@ -333,11 +329,7 @@ export class AnyNest {
             }
           }
         }
-
         placementWorkerData.nfpCache = this._nfpCache;
-
-
-        console.log("placing paths");
         return [placePaths(placeList.slice(), placementWorkerData)];
       })
       .then(

@@ -39,14 +39,14 @@ export default function placePaths(
   let path: ArrayPolygon;
   let rotatedPath: ArrayPolygon;
   let fitness: number = 0;
-  let nfp;
+  let nfp: ArrayPolygon[];
   let key: string;
-  let placed;
+  let placed: ArrayPolygon[];
   let placements: Placement[];
   let binNfp: ArrayPolygon[];
-  let error;
+  let error: boolean;
   let position;
-  let clipperBinNfp;
+  let clipperBinNfp; // Array of clipper points
   let clipper;
   let combinedNfp;
   let finalNfp;
@@ -80,6 +80,7 @@ export default function placePaths(
     fitness += 1; // add 1 for each new bin opened (lower fitness is better)
 
     for (i = 0; i < paths.length; ++i) {
+      // TODO: where in this loop to we break for the second part in our two test cases?
       path = paths.at(i);
 
       // inner NFP
@@ -159,7 +160,7 @@ export default function placePaths(
         nfp = env.nfpCache.get(key);
 
         for (k = 0; k < nfp.length; ++k) {
-          clone = toClipperCoordinates(nfp.at(k));
+          clone = toClipperCoordinates(nfp.at(k).points);
           for (m = 0; m < clone.length; ++m) {
             clone.at(m).X += placements.at(j).translate.x;
             clone.at(m).Y += placements.at(j).translate.y;
@@ -208,6 +209,7 @@ export default function placePaths(
       for (j = 0; j < finalNfp.length; ++j) {
         area = Math.abs(ClipperLib.Clipper.Area(finalNfp.at(j)));
 
+        // TODO: this < 3 check disallows perfect fits.
         if (finalNfp.at(j).length < 3 || area < minScale) {
           finalNfp.splice(j, 1);
           j--;
@@ -225,6 +227,8 @@ export default function placePaths(
         f.push(toNestCoordinates(finalNfp.at(j), env.config.clipperScale));
       }
 
+      // finalNfp is valid area for the bottom-left of the shape we're trying to place.
+      // Such that it's within the bin and not intersecting any already-placed part.
       finalNfp = f;
 
       // choose placement that results in the smallest bounding box
@@ -236,17 +240,18 @@ export default function placePaths(
 
       for (j = 0; j < finalNfp.length; ++j) {
         nf = finalNfp.at(j);
-        if (Math.abs(polygonArea(nf)) < 2) {
-          continue;
-        }
+        // Why is this here?
+//        if (Math.abs(polygonArea(nf)) < 2) {
+  //        continue;
+    //    }
 
         for (k = 0; k < nf.length; ++k) {
           allPoints = new Array<Point>();
 
           for (m = 0; m < placed.length; ++m) {
-            for (n = 0; n < placed.at(m).length; ++n) {
+            for (n = 0; n < placed.at(m).points.length; ++n) {
               allPoints.push(
-                FloatPoint.from(placed.at(m).at(n)).add(placements.at(m).translate)
+                FloatPoint.from(placed.at(m).points.at(n)).add(placements.at(m).translate)
               );
             }
           }

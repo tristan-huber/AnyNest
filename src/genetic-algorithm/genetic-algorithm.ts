@@ -37,7 +37,8 @@ export default class GeneticAlgorithm {
     let i: number = 0;
     let mutant: Phenotype;
     for (i = 0; i < adam.length; ++i) {
-      angles.push(this._randomAngle(adam[i]));
+      //angles.push(this._randomAngle(adam[i]));
+      angles.push(0); // start with Adam as using unrotated inputs
     }
 
     this._population = [new Phenotype(adam, angles)];

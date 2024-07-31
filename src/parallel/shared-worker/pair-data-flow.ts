@@ -1059,7 +1059,6 @@ export default function pairData(
   pair: NfpPair,
   env: PairWorkerData
 ): PairDataResult {
-  console.log("hello?");
   if (!pair) {
     return null;
   }
