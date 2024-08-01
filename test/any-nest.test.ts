@@ -1,7 +1,7 @@
 import {describe, expect, test} from '@jest/globals';
 import {AnyNest} from '../src/any-nest';
 import { FloatPolygon } from '../src/geometry-util/float-polygon';
-import {Shape, Placement, Point} from '../src/interfaces';
+import {Shape, Placement, Point, NestConfiguration} from '../src/interfaces';
 
 describe('anynest module', () => {
   let anyNest: AnyNest;
@@ -133,6 +133,51 @@ describe('anynest module', () => {
       let call = displayCallback.mock.calls[displayCallback.mock.calls.length - 1];
       let placements: Placement[][] = call[0];
       expect(placements).toHaveLength(2); // Outter array of placements is per-bin
+    }).finally(() => {
+      anyNest.stop();
+    });
+
+    return result;
+  });
+
+  test('fitWithSpacing', () => {
+    const bin: FloatPolygon = makeRect("bin1", 8, 10);
+    const part1: FloatPolygon = makeRect("part1", 1, 6);
+    const part2: FloatPolygon = makeRect("part2", 0.5, 5.5);
+
+    const resultConfig: NestConfiguration = anyNest.config({
+      spacing: 1,
+      binSpacing: 2
+    })
+    anyNest.setBin(bin);
+    anyNest.setParts([part1, part2]);
+
+    expect(resultConfig.binSpacing).toBe(2);
+    expect(resultConfig.spacing).toBe(1);
+
+    const result = new Promise<boolean>((resolve, reject) => {
+      try {
+        anyNest.start(progressCallback, displayCallback);
+        setTimeout(() => {
+          anyNest.stop();
+          resolve(true);
+        }, 1000); // Adjust timeout based on the expected duration of the async operation
+      } catch (error) {
+        reject(error);
+      }
+    }).then(() => {
+      expect(displayCallback.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      let call = displayCallback.mock.calls[displayCallback.mock.calls.length - 1];
+      let placements: Placement[][] = call[0];
+
+      const numPlacedParts = placements.reduce((sum: number, val: Placement[]) => {return sum += val.length}, 0);
+      expect(numPlacedParts).toBe(2);
+      expect(placements).toHaveLength(1);
+
+      // placements are more fully constrained in this case
+      expect(placements[0]).toEqual(expect.arrayContaining([{id: "part1", rotate: 0, translate: {x: 2, y: 2}}, {id: "part2", rotate: 0, translate: {x: 4, y: 2.5}}]));
+      
     }).finally(() => {
       anyNest.stop();
     });

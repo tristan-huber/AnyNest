@@ -2,14 +2,14 @@ import { polygonArea } from "../geometry-util";
 import FloatPoint from "../geometry-util/float-point";
 import {FloatPolygon} from "../geometry-util/float-polygon";
 import SharedPolygon from "./shared-polygon";
-import { ArrayPolygon, Point, SvgNestConfiguration } from "../interfaces";
+import { ArrayPolygon, Point, NestConfiguration } from "../interfaces";
 
 export default class TreePolygon extends SharedPolygon {
   private _polygons: FloatPolygon[];
 
   constructor(
     polygons: FloatPolygon[],
-    configuration: SvgNestConfiguration,
+    configuration: NestConfiguration,
     isOffset: boolean
   ) {
     super(configuration);

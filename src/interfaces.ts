@@ -77,13 +77,23 @@ export interface ArrayPolygon {
   rotate(angle: number): FloatPolygon;
 }
 
-/**
- * 
- */
-export interface SvgNestConfiguration {
+export interface NestConfigExternal {
+  clipperScale?: number;
+  curveTolerance?: number;
+  spacing?: number;
+  binSpacing?: number;
+  rotations?: number;
+  populationSize?: number;
+  mutationRate?: number;
+  useHoles?: boolean;
+  exploreConcave?: boolean;
+}
+
+export interface NestConfiguration {
   clipperScale: number;
   curveTolerance: number;
   spacing: number;
+  binSpacing: number;
   rotations: number;
   populationSize: number;
   mutationRate: number;
@@ -109,7 +119,7 @@ export interface PlacePairConfiguration {
   paths: ArrayPolygon[];
   ids: string[]; // TODO: why is this even here?
   rotations: number[];
-  config: SvgNestConfiguration;
+  config: NestConfiguration;
   nfpCache: Map<string, ArrayPolygon[]>;
 }
 

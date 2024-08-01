@@ -4,15 +4,15 @@ import { almostEqual } from "../util";
 import {
   ArrayPolygon,
   ClipperPoint,
-  SvgNestConfiguration
+  NestConfiguration
 } from "../interfaces";
 import { toNestCoordinates, toClipperCoordinates } from "../geometry-util";
 import { FloatPolygon } from "../geometry-util/float-polygon";
 
 export default class SharedPolygon {
-  private _configuration: SvgNestConfiguration;
+  private _configuration: NestConfiguration;
 
-  constructor(configuration: SvgNestConfiguration) {
+  constructor(configuration: NestConfiguration) {
     this._configuration = configuration;
   }
 

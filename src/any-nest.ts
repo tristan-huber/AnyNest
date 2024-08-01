@@ -4,7 +4,7 @@
  */
 
 import { GeneticAlgorithm } from "./genetic-algorithm";
-import { polygonArea } from "./geometry-util";
+import { polygonArea, FloatPolygon } from "./geometry-util";
 import { TreePolygon } from "./polygon";
 import { generateNFPCacheKey } from "./util";
 import {
@@ -13,20 +13,19 @@ import {
   PairDataResult,
   PlaceDataResult,
   Placement,
-  SvgNestConfiguration
+  NestConfiguration,
+  NestConfigExternal
 } from "./interfaces";
 import Phenotype from "./genetic-algorithm/phenotype";
 import pairData from "./parallel/shared-worker/pair-data-flow";
 import placePaths from "./parallel/shared-worker/place-path-flow";
-import { FloatPolygon } from "./geometry-util/float-polygon";
-
 
 export class AnyNest {
   private _best: PlaceDataResult = null;
   private _isWorking: boolean = false;
   private _genethicAlgorithm: GeneticAlgorithm;
   private _progress: number = 0;
-  private _configuration: SvgNestConfiguration;
+  private _configuration: NestConfiguration;
   private _tree: TreePolygon = null;
   private _binPolygon: FloatPolygon = null;
   private _nfpCache: Map<string, ArrayPolygon[]>;
@@ -39,6 +38,7 @@ export class AnyNest {
       clipperScale: 10000000,
       curveTolerance: 0.3,
       spacing: 0,
+      binSpacing: 0,
       rotations: 4,
       populationSize: 10,
       mutationRate: 10,
@@ -57,7 +57,9 @@ export class AnyNest {
     // move to align with origin
     this._binPolygon = bin.clone();
     this._binPolygon.translate(this._binPolygon.min.scale(-1));
-    this._binPolygon.polygonOffset(-0.5 * this._configuration.spacing, this._configuration.clipperScale, this._configuration.curveTolerance);
+    // binSpacing and part spacings are allowed to overlap. Subtract out half of the part spacing for this reason.
+    const binOffset = -1 * this._configuration.binSpacing + (this._configuration.spacing * 0.5);
+    this._binPolygon.polygonOffset(binOffset, this._configuration.clipperScale, this._configuration.curveTolerance);
   }
 
   /**
@@ -87,43 +89,19 @@ export class AnyNest {
    * @returns a copy of the configuration which will be used, including defaults for any configurations which were
    *     unspecified in the input.
    */
-  public config(configuration: {
-    [key: string]: string;
-  }): SvgNestConfiguration {
+  public config(configuration: NestConfigExternal): NestConfiguration {
+    if (this._binPolygon || this._tree) {
+      throw new Error("Config must be set before bin and parts in order to behave correctly.");
+    }
+
     if (!configuration) {
       return this._configuration;
     }
 
-    if ("spacing" in configuration) {
-      this._configuration.spacing = parseFloat(configuration.spacing);
-    }
-
-    if (configuration.rotations && parseInt(configuration.rotations) > 0) {
-      this._configuration.rotations = parseInt(configuration.rotations);
-    }
-
-    if (
-      configuration.populationSize &&
-      parseInt(configuration.populationSize) > 2
-    ) {
-      this._configuration.populationSize = parseInt(
-        configuration.populationSize
-      );
-    }
-
-    if (
-      configuration.mutationRate &&
-      parseInt(configuration.mutationRate) > 0
-    ) {
-      this._configuration.mutationRate = parseInt(configuration.mutationRate);
-    }
-
-    if ("useHoles" in configuration) {
-      this._configuration.useHoles = !!configuration.useHoles;
-    }
-
-    if ("exploreConcave" in configuration) {
-      this._configuration.exploreConcave = !!configuration.exploreConcave;
+    for (const property in this._configuration) {
+      if (configuration[property]) {
+        this._configuration[property] = configuration[property];
+      }
     }
 
     this._best = null;
@@ -133,10 +111,9 @@ export class AnyNest {
     return this._configuration;
   }
 
-  public getConfig(): SvgNestConfiguration {
+  public getConfig(): NestConfiguration {
     return this._configuration;
   }
-
 
   /**
    * Start the nesting algorithm. A genetic algorithm which produces generations of
@@ -154,12 +131,10 @@ export class AnyNest {
    * If parts cannot be placed (eg: some part is too big to fit in any bin), then displayCallback will be
    * called with an undefined placements value.
    */
-  // TODO:  consider if the no-fit case should be an exception instead.
   start(
     progressCallback: (progress: number) => void,
     displayCallback: (placements: Placement[][], untilization: number) => void
   ): void {
-    console.log("start called on anynest");
     if (!this._binPolygon) {
       throw new Error("Missing bin for packing. Ensure you have called setBin");
     }
@@ -206,7 +181,6 @@ export class AnyNest {
     // persistant workers. That would require a more complex implementation that what's
     // here.
     for (let i = 0; i < nfpPairs.length; i ++) {
-
       results.push(pairData(
         nfpPairs[i], {
         rotations: this._configuration.rotations,
