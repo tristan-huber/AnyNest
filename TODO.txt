@@ -1,0 +1,9 @@
+Use FloatPolygon as part of the public interface
+Fix multiple parts on one sheet test
+rotate method to be a mutator
+add clone to FloatPolygon
+add tests which include spacing
+differentiate between external spacing and inter-part spacing
+deprecate ArrayPolygon interface?
+restore parallelization
+Update tests to run for a particular number of generations

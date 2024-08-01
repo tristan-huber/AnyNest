@@ -103,7 +103,7 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
    * Moves this polygon by the specified vector. Positive x value moves "right",
    * positive y value moves "up".
    */
-  public translate(vector: FloatPoint) {
+  public translate(vector: Point) {
     this._points.map((point: FloatPoint) => {
       point.add(vector);
     });

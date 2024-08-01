@@ -12,7 +12,6 @@ import {
   NfpPair,
   PairDataResult,
   PlaceDataResult,
-  Shape,
   Placement,
   SvgNestConfiguration
 } from "./interfaces";
@@ -49,20 +48,15 @@ export class AnyNest {
     this._genethicAlgorithm = new GeneticAlgorithm();
   }
 
-  private _shapeToPolygon(shape: Shape): FloatPolygon {
-    return FloatPolygon.fromPoints(shape.points, shape.id);
-  }
-
   /**
    * Provide the bin shape into which all parts will attempt to be nested.
    * 
    * The bin can be an arbitrary shape. All ArrayPolygons use unspecified units.
    */
-  public setBin(bin: Shape): void {
-    this._binPolygon = this._shapeToPolygon(bin);
+  public setBin(bin: FloatPolygon): void {
     // move to align with origin
+    this._binPolygon = bin; // TODO: clone here.
     this._binPolygon.translate(this._binPolygon.min.scale(-1));
-    // offset
     this._binPolygon.polygonOffset(-0.5 * this._configuration.spacing, this._configuration.clipperScale, this._configuration.curveTolerance);
   }
 
@@ -75,12 +69,8 @@ export class AnyNest {
    * 
    * The given parts list should not include the bin polygon.
    */
-  public setParts(parts: Shape[]): void {
-    const polygons: FloatPolygon[] = [];
-    for (var i = 0; i < parts.length; i++) {
-      polygons.push(this._shapeToPolygon(parts[i]));
-    }
-    this._tree = new TreePolygon(polygons, this._configuration, true);
+  public setParts(parts: FloatPolygon[]): void {
+    this._tree = new TreePolygon(parts, this._configuration, true);
   }
 
   /**

@@ -1,6 +1,7 @@
 import {describe, expect, test} from '@jest/globals';
 import {AnyNest} from '../src/any-nest';
-import {Shape, Placement} from '../src/interfaces';
+import { FloatPolygon } from '../src/geometry-util/float-polygon';
+import {Shape, Placement, Point} from '../src/interfaces';
 
 describe('anynest module', () => {
   let anyNest: AnyNest;
@@ -16,31 +17,16 @@ describe('anynest module', () => {
   });
 
   test('setBinNoCrash', () => {
-    expect(anyNest.setBin({id: 'bin', points: [
-        {x: 0, y: 0}, {x: 0, y: 100}, {x: 100, y: 100}, {x: 100, y: 0}]}))
+    expect(anyNest.setBin(FloatPolygon.fromPoints([
+        {x: 0, y: 0}, {x: 0, y: 100}, {x: 100, y: 100}, {x: 100, y: 0}], "bin1")))
         .toBe(undefined);
   });
 
   test('singlePartFits', () => {
-    const bin: Shape = {
-      id: 'bin1',
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-        { x: 10, y: 10 },
-        { x: 0, y: 10 },
-      ],
-    };
+    const bin: FloatPolygon = makeRect("bin1", 10, 10);
 
-    const part: Shape = {
-      id: 'part1',
-      points: [
-        { x: 1, y: 1 },
-        { x: 3, y: 1 },
-        { x: 3, y: 3 },
-        { x: 1, y: 3 },
-      ],
-    };
+    const part: FloatPolygon = makeRect("part1", 2, 2);
+    part.translate({x: 1, y: 1});
 
     anyNest.setBin(bin);
     anyNest.setParts([part]);
@@ -86,35 +72,9 @@ describe('anynest module', () => {
   });
 
   test('multiPartPartialFill', () => {
-    const bin: Shape = {
-      id: 'bin1',
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-        { x: 10, y: 10 },
-        { x: 0, y: 10 },
-      ],
-    };
-
-    const part1: Shape = {
-      id: 'part1',
-      points: [
-        { x: 0, y: 0 },
-        { x: 5, y: 0 },
-        { x: 5, y: 10 },
-        { x: 0, y: 10 },
-      ],
-    };
-
-    const part2: Shape = {
-      id: 'part2',
-      points: [
-        { x: 0, y: 0 },
-        { x: 4.8, y: 0 }, // TODO: if this is 4.9 it will use 2 bins but shouldn't.
-        { x: 4.8, y: 9 },
-        { x: 0, y: 9 },
-      ],
-    };
+    const bin: FloatPolygon = makeRect("bin1", 10, 10);
+    const part1: FloatPolygon = makeRect("part1", 5, 10);
+    const part2: FloatPolygon = makeRect("part2", 4.8, 9); // TODO: if this is 4.9 it will use 2 bins but shouldn't.
 
     anyNest.setBin(bin);
     anyNest.setParts([part1, part2]);
@@ -150,35 +110,9 @@ describe('anynest module', () => {
   });
 
   test('useMultipleBinsToFitAllParts', () => {
-    const bin: Shape = {
-      id: 'bin1',
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-        { x: 10, y: 10 },
-        { x: 0, y: 10 },
-      ],
-    };
-
-    const part1: Shape = {
-      id: 'part1',
-      points: [
-        { x: 0, y: 0 },
-        { x: 5, y: 0 },
-        { x: 5, y: 10 },
-        { x: 0, y: 10 },
-      ],
-    };
-
-    const part2: Shape = {
-      id: 'part2',
-      points: [
-        { x: 0, y: 0 },
-        { x: 5.01, y: 0 },
-        { x: 5.01, y: 9 },
-        { x: 0, y: 9 },
-      ],
-    };
+    const bin: FloatPolygon = makeRect("bin1", 10, 10);
+    const part1: FloatPolygon = makeRect("part1", 5, 10);
+    const part2: FloatPolygon = makeRect("part2", 5.01, 9);
 
     anyNest.setBin(bin);
     anyNest.setParts([part1, part2]);
@@ -207,7 +141,7 @@ describe('anynest module', () => {
   });
 
   /**
-   * NOTE! Exact fills aren't supported right now, see note in place-path-flow
+   * NOTE! Exact fills aren't working right now, see note in place-path-flow
    * That can be updated once we have more robust testing and I understand Clipper better.
    
   test('multiPartExactFill', () => {
@@ -332,4 +266,14 @@ function round(val: number, decimals: number): number {
   var result = Math.round(val * power) / power;
   if (result == -0) {result = 0;}
   return result;
+}
+
+function makeRect(id: string, width: number, height: number): FloatPolygon {
+  const points: Point[] = [
+    { x: 0, y: 0 },
+    { x: width, y: 0 },
+    { x: width, y: height },
+    { x: 0, y: height },
+  ]
+  return FloatPolygon.fromPoints(points, id);
 }
