@@ -55,7 +55,7 @@ export class AnyNest {
    */
   public setBin(bin: FloatPolygon): void {
     // move to align with origin
-    this._binPolygon = bin; // TODO: clone here.
+    this._binPolygon = bin.clone();
     this._binPolygon.translate(this._binPolygon.min.scale(-1));
     this._binPolygon.polygonOffset(-0.5 * this._configuration.spacing, this._configuration.clipperScale, this._configuration.curveTolerance);
   }

@@ -21,7 +21,6 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
   private _isValid: boolean;
   private _offset: FloatPoint;
   private _children: FloatPolygon[];
-  private _source: string;
   private _rotation: number = 0;
   private _points: Array<FloatPoint>;
 
@@ -42,6 +41,23 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
 
     result._id = id;
     result._offset = new FloatPoint();
+
+    return result;
+  }
+
+  /**
+   * @returns a deep copy of this polygon.
+   */
+  public clone(): FloatPolygon {
+    const points: FloatPoint[] = this._points.map((point: FloatPoint) => point.clone());
+    const result: FloatPolygon = FloatPolygon.fromPoints(points, this._id);
+    result._rotation = this._rotation;
+    result._offset = this._offset.clone();
+    
+    // deep clone of children
+    this._children.map((child: FloatPolygon) => {
+      result._children.push(child.clone());
+    });
 
     return result;
   }
@@ -304,14 +320,6 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
 
   public get childCount(): number {
     return this._children.length;
-  }
-
-  public set source(source: string) {
-    this._source = source;
-  }
-
-  public get source(): string {
-    return this._source;
   }
 
   public set rotation(rotation: number) {
