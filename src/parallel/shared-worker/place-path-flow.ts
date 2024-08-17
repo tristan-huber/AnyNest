@@ -290,8 +290,8 @@ export default function placePaths(
       }
     }
 
-    if (minWidth) {
-      fitness += minWidth / binArea;
+    if (minArea) {
+      fitness += minArea / binArea;
     }
 
     for (i = 0; i < placed.length; ++i) {
