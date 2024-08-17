@@ -240,10 +240,6 @@ export default function placePaths(
 
       for (j = 0; j < finalNfp.length; ++j) {
         nf = finalNfp.at(j);
-        // Why is this here?
-//        if (Math.abs(polygonArea(nf)) < 2) {
-  //        continue;
-    //    }
 
         for (k = 0; k < nf.length; ++k) {
           allPoints = new Array<Point>();

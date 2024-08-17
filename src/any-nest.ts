@@ -14,13 +14,17 @@ import {
   PlaceDataResult,
   Placement,
   NestConfiguration,
-  NestConfigExternal
+  NestConfigExternal,
+  Point
 } from "./interfaces";
 import Phenotype from "./genetic-algorithm/phenotype";
 import pairData from "./parallel/shared-worker/pair-data-flow";
 import placePaths from "./parallel/shared-worker/place-path-flow";
 
-export class AnyNest {
+export {AnyNest, FloatPolygon};
+export type {NestConfigExternal, Placement, Point};
+
+class AnyNest {
   private _best: PlaceDataResult = null;
   private _isWorking: boolean = false;
   private _genethicAlgorithm: GeneticAlgorithm;
@@ -41,7 +45,7 @@ export class AnyNest {
       binSpacing: 0,
       rotations: 4,
       populationSize: 10,
-      mutationRate: 10,
+      mutationRate: 50,
       useHoles: false,
       exploreConcave: false
     };
@@ -89,7 +93,7 @@ export class AnyNest {
    * @returns a copy of the configuration which will be used, including defaults for any configurations which were
    *     unspecified in the input.
    */
-  public config(configuration: NestConfigExternal): NestConfiguration {
+  public config(configuration: NestConfigExternal): NestConfigExternal {
     if (this._binPolygon || this._tree) {
       throw new Error("Config must be set before bin and parts in order to behave correctly.");
     }
@@ -108,6 +112,7 @@ export class AnyNest {
     this._nfpCache.clear();
     this._genethicAlgorithm.clear();
 
+    console.log("config: " + JSON.stringify(this._configuration));
     return this._configuration;
   }
 
@@ -135,6 +140,7 @@ export class AnyNest {
     progressCallback: (progress: number) => void,
     displayCallback: (placements: Placement[][], untilization: number) => void
   ): void {
+    console.log("start from anynest");
     if (!this._binPolygon) {
       throw new Error("Missing bin for packing. Ensure you have called setBin");
     }
@@ -156,7 +162,7 @@ export class AnyNest {
           console.log(err);
         }
       }
-
+      console.log("did run setInterval");
       progressCallback(this._progress);
     }, 100);
   }
@@ -165,6 +171,7 @@ export class AnyNest {
    * Stop the nesting algorithm.
    */
   public stop(): void {
+    console.log("stop nesting called");
     this._isWorking = false;
 
     if (this._workerTimer) {
@@ -176,10 +183,6 @@ export class AnyNest {
   private async _calculateNfpPairs(batchSize: number, nfpPairs: NfpPair[]): Promise<PairDataResult[]> {
     const results: PairDataResult[] = [];
 
-    // TODO: As written we wait for the slowest pairData call in each batch. This could
-    // theoretically be made faster by having a single shared queue between batchSize
-    // persistant workers. That would require a more complex implementation that what's
-    // here.
     for (let i = 0; i < nfpPairs.length; i ++) {
       results.push(pairData(
         nfpPairs[i], {
@@ -225,6 +228,8 @@ export class AnyNest {
     const newCache: Map<string, ArrayPolygon[]> = new Map();
     let part: ArrayPolygon;
     let key: string;
+
+    console.log("considering new phenotype: " + JSON.stringify(individual.rotation));
 
     const updateCache = (
       polygon1: ArrayPolygon,
@@ -273,10 +278,7 @@ export class AnyNest {
       nfpCache: this._nfpCache
     };
 
-    const batchSize: number = 4;
-    const results: PairDataResult[] = [];
     const pairResult = this._calculateNfpPairs(4, nfpPairs);
-
 
     pairResult.then(
       (generatedNfp: PairDataResult[]) => {
@@ -299,6 +301,7 @@ export class AnyNest {
       .then(
         (placements: PlaceDataResult[]) => {
           if (!placements || placements.length == 0) {
+            console.log("exiting early, placements empty: " + placements);
             return;
           }
 
@@ -308,7 +311,9 @@ export class AnyNest {
 
           individual.fitness = bestResult.fitness;
 
+          console.log("fitness: " + placements[0].fitness);
           for (i = 1; i < placements.length; ++i) {
+            console.log("fitness: " + placements[i].fitness);
             if (placements[i].fitness < bestResult.fitness) {
               bestResult = placements[i];
             }
@@ -321,7 +326,6 @@ export class AnyNest {
             let totalArea: number = 0;
             let numPlacedParts: number = 0;
             let bestPlacement: Placement[];
-            const numParts: number = placeList.length;
             const binArea: number = Math.abs(this._binPolygon.area);
 
             for (i = 0; i < this._best.placements.length; ++i) {
@@ -340,14 +344,8 @@ export class AnyNest {
                 );
               }
             }
-
-            displayCallback(
-              this._best.placements,
-              placedArea / totalArea
-            );
-          } else {
-            // TODO: spec promises to call displayCallback once per generation...
           }
+          displayCallback(this._best.placements, this._best.fitness);
           this._isWorking = false;
         },
         function (err) {

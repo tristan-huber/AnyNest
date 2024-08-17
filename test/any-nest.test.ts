@@ -1,7 +1,7 @@
 import {describe, expect, test} from '@jest/globals';
 import {AnyNest} from '../src/any-nest';
 import { FloatPolygon } from '../src/geometry-util/float-polygon';
-import {Shape, Placement, Point, NestConfiguration} from '../src/interfaces';
+import {Shape, Placement, Point, NestConfigExternal} from '../src/interfaces';
 
 describe('anynest module', () => {
   let anyNest: AnyNest;
@@ -145,7 +145,7 @@ describe('anynest module', () => {
     const part1: FloatPolygon = makeRect("part1", 1, 6);
     const part2: FloatPolygon = makeRect("part2", 0.5, 5.5);
 
-    const resultConfig: NestConfiguration = anyNest.config({
+    const resultConfig: NestConfigExternal = anyNest.config({
       spacing: 1,
       binSpacing: 2
     })

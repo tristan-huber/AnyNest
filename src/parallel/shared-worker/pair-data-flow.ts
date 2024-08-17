@@ -1029,11 +1029,19 @@ function minkowskiDifference(
   ClipperLib.JS.ScaleUpPath(clippedA, 10000000);
   ClipperLib.JS.ScaleUpPath(clippedB, 10000000);
 
-  for (i = 0; i < clippedA.length; ++i) {
+  if (!clippedB) {
+    console.log(clippedB);
+  }
+
+  for (i = 0; i < clippedB.length; ++i) {
     clippedB.at(i).X *= -1;
     clippedB.at(i).Y *= -1;
   }
 
+  // 95-99 % of compute time is spent on this next line.
+  console.log("computing minkowski difference for : " + A.id, " with " + B.id);
+  console.log(clippedA);
+  console.log(clippedB);
   const solutions = ClipperLib.Clipper.MinkowskiSum(clippedA, clippedB, true);
   const solutionCount: number = solutions.length;
 
@@ -1090,6 +1098,7 @@ export default function pairData(
       // warning on null inner NFP
       // this is not an error, as the part may simply be larger than the bin or otherwise unplaceable due to geometry
       console.log("NFP Warning: ", nfpData);
+      return null;
     }
   } else {
     if (searchEdges) {
@@ -1114,6 +1123,7 @@ export default function pairData(
             Math.abs(polygonArea(nfp.at(i))),
             nfpData
           );
+          console.log("computed area for a: " + polygonArea(a.points));
           console.log("NFP:", JSON.stringify(nfp.at(i)));
           console.log("A: ", JSON.stringify(a));
           console.log("B: ", JSON.stringify(b));

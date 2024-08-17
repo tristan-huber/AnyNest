@@ -59,6 +59,7 @@ export default class GeneticAlgorithm {
   }
 
   private _generation(): void {
+    console.log("starting a new generation in the GA");
     // Individuals with higher fitness are more likely to be selected for mating
     this._population.sort((a, b) => a.fitness - b.fitness);
 
