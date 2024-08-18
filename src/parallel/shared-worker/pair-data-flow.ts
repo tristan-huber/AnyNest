@@ -134,7 +134,7 @@ function intersect(polygonA: ArrayPolygon, polygonB: ArrayPolygon): boolean {
     polygonB.offsety || 0
   );
   const aSize: number = polygonA.points.length;
-  const bSize: number = polygonA.points.length; // Why is this size a?
+  const bSize: number = polygonB.points.length;
   const a1: FloatPoint = new FloatPoint();
   const a2: FloatPoint = new FloatPoint();
   const b1: FloatPoint = new FloatPoint();
@@ -242,7 +242,7 @@ function pointDistance(
   return ((s1DotNorm - s2DotNorm) * diff1) / (s1Dot - s2Dot) - diffNorm1;
 }
 
-function segmentDistance(
+export function segmentDistance(
   A: FloatPoint,
   B: FloatPoint,
   E: FloatPoint,
@@ -255,10 +255,10 @@ function segmentDistance(
   const dotB: number = normal.dot(B);
   const dotE: number = normal.dot(E);
   const dotF: number = normal.dot(F);
-  const crossA: number = direction.cross(A);
-  const crossB: number = direction.cross(B);
-  const crossE: number = direction.cross(E);
-  const crossF: number = direction.cross(F);
+  const crossA: number = direction.dot(A);
+  const crossB: number = direction.dot(B);
+  const crossE: number = direction.dot(E);
+  const crossF: number = direction.dot(F);
   const minAB: number = Math.min(dotA, dotB);
   const maxAB: number = Math.max(dotA, dotB);
   const maxEF: number = Math.max(dotE, dotF);
@@ -432,7 +432,7 @@ function polygonSlideDistance(
 
   for (i = 0; i < sizeB - 1; ++i) {
     b1.set(edgeB.points.at(i)).add(offsetB);
-    b2.set(edgeB.points.at(i + 1)).add(offsetB);
+    b2.set(edgeB.points.at(i + 1)).add(offsetB); // 8, 10   x  13, 10
 
     if (FloatPoint.almostEqual(b1, b2)) {
       continue;
@@ -536,8 +536,8 @@ function searchStartPoint(
   NFP: Array<Array<Point>> = []
 ): FloatPoint | null {
   // clone arrays
-  const edgeA: ArrayPolygon = FloatPolygon.fromPoints(A.points, A.id);
-  const edgeB: ArrayPolygon = FloatPolygon.fromPoints(B.points, B.id);
+  const edgeA: FloatPolygon = FloatPolygon.fromPoints(A.points, A.id);
+  const edgeB: FloatPolygon = FloatPolygon.fromPoints(B.points, B.id);
   const offset: FloatPoint = new FloatPoint();
   const point: FloatPoint = new FloatPoint();
   let i: number = 0;
@@ -566,8 +566,7 @@ function searchStartPoint(
       edgeA.points.at(i).marked = true;
       for (j = 0; j < sizeB; ++j) {
         offset.set(edgeA.points.at(i)).sub(edgeB.points.at(j));
-        edgeB.offsetx = offset.x;
-        edgeB.offsety = offset.y;
+        edgeB.setOffset(offset)
 
         for (k = 0; k < sizeB; ++k) {
           if (pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)) {
@@ -619,8 +618,7 @@ function searchStartPoint(
         }
 
         offset.add(point);
-        edgeB.offsetx = offset.x;
-        edgeB.offsety = offset.y;
+        edgeB.setOffset(offset);
 
         for (k = 0; k < sizeB; ++k) {
           if (pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)) {
@@ -670,17 +668,15 @@ function searchStartPoint(
 // if the inside flag is set, B is orbited inside of A rather than outside
 // if the searchEdges flag is set, all edges of A are explored for NFPs - multiple
 function noFitPolygon(
-  a: ArrayPolygon,
-  b: ArrayPolygon,
+  a: FloatPolygon,
+  b: FloatPolygon,
   inside: boolean,
   searchEdges: boolean
 ) {
   if (a.points.length < 3 || b.points.length < 3) {
     return null;
   }
-
-  a.offsetx = 0;
-  a.offsety = 0;
+  a.setOffset(new FloatPoint(0, 0))
 
   const sizeA: number = a.points.length;
   const sizeB: number = b.points.length;
@@ -753,8 +749,7 @@ function noFitPolygon(
 
   while (startPoint !== null) {
     offset.set(startPoint);
-    b.offsetx = offset.x;
-    b.offsety = offset.y;
+    b.setOffset(offset);
 
     prevVector = null; // keep track of previous vector
     nfp = new Array<Point>();
@@ -767,7 +762,7 @@ function noFitPolygon(
     while (counter < 10 * sumSize) {
       // sanity check, prevent infinite loop
       touching = [];
-      // find touching vertices/edges
+  // find touching vertices/edges
       for (i = 0; i < sizeA; ++i) {
         for (j = 0; j < sizeB; ++j) {
           point1.set(b.points.at(j)).add(offset);
@@ -942,8 +937,7 @@ function noFitPolygon(
       nfp.push(reference.clone());
 
       offset.add(translate);
-      b.offsetx = offset.x;
-      b.offsety = offset.y;
+      b.setOffset(offset);
 
       ++counter;
     }
@@ -1029,19 +1023,11 @@ function minkowskiDifference(
   ClipperLib.JS.ScaleUpPath(clippedA, 10000000);
   ClipperLib.JS.ScaleUpPath(clippedB, 10000000);
 
-  if (!clippedB) {
-    console.log(clippedB);
-  }
-
   for (i = 0; i < clippedB.length; ++i) {
     clippedB.at(i).X *= -1;
     clippedB.at(i).Y *= -1;
   }
 
-  // 95-99 % of compute time is spent on this next line.
-  console.log("computing minkowski difference for : " + A.id, " with " + B.id);
-  console.log(clippedA);
-  console.log(clippedB);
   const solutions = ClipperLib.Clipper.MinkowskiSum(clippedA, clippedB, true);
   const solutionCount: number = solutions.length;
 
@@ -1063,7 +1049,7 @@ function minkowskiDifference(
   return [clipperNfp];
 }
 
-export default function pairData(
+export function pairData(
   pair: NfpPair,
   env: PairWorkerData
 ): PairDataResult {

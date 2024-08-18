@@ -198,6 +198,16 @@ export class FloatPolygon implements ArrayPolygon, BoundRect {
     this.updatePoints(toNestCoordinates(newPaths[0], clipperScale));
   }
 
+  /**
+   * TODO(tristan): someday we should use this to actually do the offsetting. For now,
+   * we just need a way to record an offset paired with a polygon for usage in pair-data-flow.ts
+   * 
+   * @param offset 
+   */
+  public setOffset(offset: FloatPoint) {
+    this._offset = offset.clone();
+  }
+
   private _computeBounds(): FloatRect | null {
     if (!this._isValid) {
       return null;

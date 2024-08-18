@@ -18,7 +18,7 @@ import {
   Point
 } from "./interfaces";
 import Phenotype from "./genetic-algorithm/phenotype";
-import pairData from "./parallel/shared-worker/pair-data-flow";
+import {pairData} from "./parallel/shared-worker/pair-data-flow";
 import placePaths from "./parallel/shared-worker/place-path-flow";
 
 export {AnyNest, FloatPolygon};
@@ -112,7 +112,6 @@ class AnyNest {
     this._nfpCache.clear();
     this._genethicAlgorithm.clear();
 
-    console.log("config: " + JSON.stringify(this._configuration));
     return this._configuration;
   }
 
@@ -132,7 +131,7 @@ class AnyNest {
    *        placements - a list of list of Placements. If all parts cannot be fit in a single bin
    *                   then a list of Placments will be specified for each bin which is needed in order to
    *                   fit all parts.
-   *        utilization - portion of the bin which is used
+   *        fitness - TODO: semantically what does this mean? - portion of the bin which is used
    * If parts cannot be placed (eg: some part is too big to fit in any bin), then displayCallback will be
    * called with an undefined placements value.
    */
@@ -140,7 +139,6 @@ class AnyNest {
     progressCallback: (progress: number) => void,
     displayCallback: (placements: Placement[][], untilization: number) => void
   ): void {
-    console.log("start from anynest");
     if (!this._binPolygon) {
       throw new Error("Missing bin for packing. Ensure you have called setBin");
     }
@@ -158,11 +156,9 @@ class AnyNest {
           this._launchWorkers(displayCallback);
           this._isWorking = true;
         } catch (err) {
-          // TODO: should we throw this up to caller? probs.
           console.log(err);
         }
       }
-      console.log("did run setInterval");
       progressCallback(this._progress);
     }, 100);
   }
@@ -171,7 +167,6 @@ class AnyNest {
    * Stop the nesting algorithm.
    */
   public stop(): void {
-    console.log("stop nesting called");
     this._isWorking = false;
 
     if (this._workerTimer) {
@@ -228,8 +223,6 @@ class AnyNest {
     const newCache: Map<string, ArrayPolygon[]> = new Map();
     let part: ArrayPolygon;
     let key: string;
-
-    console.log("considering new phenotype: " + JSON.stringify(individual.rotation));
 
     const updateCache = (
       polygon1: ArrayPolygon,
@@ -301,7 +294,6 @@ class AnyNest {
       .then(
         (placements: PlaceDataResult[]) => {
           if (!placements || placements.length == 0) {
-            console.log("exiting early, placements empty: " + placements);
             return;
           }
 
@@ -311,9 +303,7 @@ class AnyNest {
 
           individual.fitness = bestResult.fitness;
 
-          console.log("fitness: " + placements[0].fitness);
           for (i = 1; i < placements.length; ++i) {
-            console.log("fitness: " + placements[i].fitness);
             if (placements[i].fitness < bestResult.fitness) {
               bestResult = placements[i];
             }
