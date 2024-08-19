@@ -61,8 +61,7 @@ class AnyNest {
     // move to align with origin
     this._binPolygon = bin.clone();
     this._binPolygon.translate(this._binPolygon.min.scale(-1));
-    // binSpacing and part spacings are allowed to overlap. Subtract out half of the part spacing for this reason.
-    const binOffset = -1 * this._configuration.binSpacing + (this._configuration.spacing * 0.5);
+    const binOffset = -1 * this._configuration.binSpacing;
     this._binPolygon.polygonOffset(binOffset, this._configuration.clipperScale, this._configuration.curveTolerance);
   }
 

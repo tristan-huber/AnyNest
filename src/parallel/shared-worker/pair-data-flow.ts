@@ -568,14 +568,20 @@ function searchStartPoint(
         offset.set(edgeA.points.at(i)).sub(edgeB.points.at(j));
         edgeB.setOffset(offset)
 
+        let firstNonIdenticalPointIsInside = null;
         for (k = 0; k < sizeB; ++k) {
-          if (pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)) {
-            // A and B are the same
-            return null;
+          firstNonIdenticalPointIsInside = pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)
+          if (firstNonIdenticalPointIsInside != null) {
+            break;
           }
         }
+        // A and B are the same shape (ie. all points in B are on the perimiter of A)
+        if (firstNonIdenticalPointIsInside == null) {
+          return null;
+        }
 
-        if (!inside && !intersect(edgeA, edgeB) && !inNfp(offset, NFP)) {
+
+        if ((firstNonIdenticalPointIsInside == inside) && !intersect(edgeA, edgeB) && !inNfp(offset, NFP)) {
           return offset.clone();
         }
 
@@ -620,48 +626,47 @@ function searchStartPoint(
         offset.add(point);
         edgeB.setOffset(offset);
 
+        firstNonIdenticalPointIsInside = null;
         for (k = 0; k < sizeB; ++k) {
-          if (pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)) {
+          firstNonIdenticalPointIsInside = pointInPolygon(point.set(edgeB.points.at(k)).add(offset), edgeA)
+          if (firstNonIdenticalPointIsInside != null) {
             break;
           }
+        }
 
-          if (!inside && !intersect(edgeA, edgeB) && !inNfp(offset, NFP)) {
-            return offset.clone();
-          }
+        if ((firstNonIdenticalPointIsInside == inside) && !intersect(edgeA, edgeB) && !inNfp(offset, NFP)) {
+          return offset.clone();
         }
       }
     }
-
-    return null;
   }
+  return null;
+}
 
-  // returns true if point already exists in the given nfp
-  function inNfp(p: Point, nfp: Array<Array<Point>> = []): boolean {
-    if (nfp.length == 0) {
-      return false;
-    }
-
-    const rootSize: number = nfp.length;
-    let nfpCount: number = 0;
-    let i: number = 0;
-    let j: number = 0;
-    let nfpItem: Array<Point>;
-
-    for (i = 0; i < rootSize; ++i) {
-      nfpItem = nfp.at(i);
-      nfpCount = nfpItem.length;
-
-      for (j = 0; j < nfpCount; ++j) {
-        if (FloatPoint.almostEqual(p, nfpItem.at(j))) {
-          return true;
-        }
-      }
-    }
-
+// returns true if point already exists in the given nfp
+function inNfp(p: Point, nfp: Array<Array<Point>> = []): boolean {
+  if (nfp.length == 0) {
     return false;
   }
 
-  return null;
+  const rootSize: number = nfp.length;
+  let nfpCount: number = 0;
+  let i: number = 0;
+  let j: number = 0;
+  let nfpItem: Array<Point>;
+
+  for (i = 0; i < rootSize; ++i) {
+    nfpItem = nfp.at(i);
+    nfpCount = nfpItem.length;
+
+    for (j = 0; j < nfpCount; ++j) {
+      if (FloatPoint.almostEqual(p, nfpItem.at(j))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 // given a static polygon A and a movable polygon B, compute a no fit polygon by orbiting B about A
@@ -707,9 +712,9 @@ function noFitPolygon(
 
   let startPoint: FloatPoint | null = !inside
     ? // shift B such that the bottom-most point of B is at the top-most point of A. This guarantees an initial placement with no intersections
-      FloatPoint.sub(b.points.at(maxBIndex), a.points.at(minAIndex))
+    FloatPoint.sub(b.points.at(maxBIndex), a.points.at(minAIndex))
     : // no reliable heuristic for inside
-      searchStartPoint(a, b, true);
+    searchStartPoint(a, b, true);
   let reference: FloatPoint = new FloatPoint();
   let start: FloatPoint = new FloatPoint();
   let offset: FloatPoint = new FloatPoint();
@@ -762,7 +767,7 @@ function noFitPolygon(
     while (counter < 10 * sumSize) {
       // sanity check, prevent infinite loop
       touching = [];
-  // find touching vertices/edges
+      // find touching vertices/edges
       for (i = 0; i < sizeA; ++i) {
         for (j = 0; j < sizeB; ++j) {
           point1.set(b.points.at(j)).add(offset);
@@ -1166,7 +1171,7 @@ export function pairData(
   }
 
   // TODO: absent ID seems dangerous here.
-  let result: ArrayPolygon[] = nfp.map((poly : Array<Point>) => {return FloatPolygon.fromPoints(poly, "");});
+  let result: ArrayPolygon[] = nfp.map((poly: Array<Point>) => { return FloatPolygon.fromPoints(poly, ""); });
 
   return { value: result, key: pair.key };
 }

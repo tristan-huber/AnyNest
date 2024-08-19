@@ -1,6 +1,6 @@
 {
   "name": "any-nest",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Polygon nesting library. Adapted from SVGNest",
   "main": "dist/any-nest.js",
   "module": "dist/any-nest.js",
